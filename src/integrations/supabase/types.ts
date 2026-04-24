@@ -14,7 +14,266 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lyric_lines: {
+        Row: {
+          end_seconds: number
+          hebrew_translation: string
+          id: string
+          is_chorus: boolean
+          line_index: number
+          song_id: string
+          spanish_text: string
+          start_seconds: number
+        }
+        Insert: {
+          end_seconds: number
+          hebrew_translation: string
+          id?: string
+          is_chorus?: boolean
+          line_index: number
+          song_id: string
+          spanish_text: string
+          start_seconds: number
+        }
+        Update: {
+          end_seconds?: number
+          hebrew_translation?: string
+          id?: string
+          is_chorus?: boolean
+          line_index?: number
+          song_id?: string
+          spanish_text?: string
+          start_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lyric_lines_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_flags: {
+        Row: {
+          id: string
+          last_missed_at: string
+          miss_count: number
+          song_id: string
+          user_id: string
+          word: string
+        }
+        Insert: {
+          id?: string
+          last_missed_at?: string
+          miss_count?: number
+          song_id: string
+          user_id: string
+          word: string
+        }
+        Update: {
+          id?: string
+          last_missed_at?: string
+          miss_count?: number
+          song_id?: string
+          user_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_flags_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          learning_level: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          learning_level?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          learning_level?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quiz_attempts: {
+        Row: {
+          completed_at: string
+          id: string
+          score: number
+          song_id: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          score: number
+          song_id: string
+          total: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          score?: number
+          song_id?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_vocab: {
+        Row: {
+          created_at: string
+          hebrew: string
+          id: string
+          is_slang: boolean
+          source_song_id: string | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          hebrew: string
+          id?: string
+          is_slang?: boolean
+          source_song_id?: string | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          hebrew?: string
+          id?: string
+          is_slang?: boolean
+          source_song_id?: string | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_vocab_source_song_id_fkey"
+            columns: ["source_song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slang_dictionary: {
+        Row: {
+          contextual_meaning: string
+          created_at: string
+          example_usage: string | null
+          id: string
+          is_urban_slang: boolean
+          term: string
+        }
+        Insert: {
+          contextual_meaning: string
+          created_at?: string
+          example_usage?: string | null
+          id?: string
+          is_urban_slang?: boolean
+          term: string
+        }
+        Update: {
+          contextual_meaning?: string
+          created_at?: string
+          example_usage?: string | null
+          id?: string
+          is_urban_slang?: boolean
+          term?: string
+        }
+        Relationships: []
+      }
+      songs: {
+        Row: {
+          album_art_url: string | null
+          artist: string
+          created_at: string
+          difficulty: string | null
+          genre: string
+          id: string
+          title: string
+          youtube_id: string
+        }
+        Insert: {
+          album_art_url?: string | null
+          artist: string
+          created_at?: string
+          difficulty?: string | null
+          genre: string
+          id?: string
+          title: string
+          youtube_id: string
+        }
+        Update: {
+          album_art_url?: string | null
+          artist?: string
+          created_at?: string
+          difficulty?: string | null
+          genre?: string
+          id?: string
+          title?: string
+          youtube_id?: string
+        }
+        Relationships: []
+      }
+      translations_cache: {
+        Row: {
+          created_at: string
+          hebrew: string
+          id: string
+          pronunciation_hint: string | null
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          hebrew: string
+          id?: string
+          pronunciation_hint?: string | null
+          word: string
+        }
+        Update: {
+          created_at?: string
+          hebrew?: string
+          id?: string
+          pronunciation_hint?: string | null
+          word?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
