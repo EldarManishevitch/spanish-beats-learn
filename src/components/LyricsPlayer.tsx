@@ -6,10 +6,29 @@ import { TranslateWord } from "./TranslateWord";
 
 type Line = { id: string; line_index: number; spanish_text: string; hebrew_translation: string; start_seconds: number; end_seconds: number; is_chorus: boolean };
 
-declare global { interface Window { YT: any; onYouTubeIframeAPIReady: any; } }
+declare global { interface Window { YT: any; onYouTubeIframeAPIReady: any; __ytApiLoading?: boolean; __ytApiReady?: boolean; __ytReadyCallbacks?: Array<() => void>; } }
+
+const loadYouTubeAPI = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (window.__ytApiReady && window.YT?.Player) return resolve();
+    window.__ytReadyCallbacks = window.__ytReadyCallbacks || [];
+    window.__ytReadyCallbacks.push(resolve);
+    if (window.__ytApiLoading) return;
+    window.__ytApiLoading = true;
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.body.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => {
+      window.__ytApiReady = true;
+      window.__ytReadyCallbacks?.forEach((cb) => cb());
+      window.__ytReadyCallbacks = [];
+    };
+  });
+};
 
 export const LyricsPlayer = ({ youtubeId, lines, songId }: { youtubeId: string; lines: Line[]; songId: string }) => {
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [playerReady, setPlayerReady] = useState(false);
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -17,28 +36,39 @@ export const LyricsPlayer = ({ youtubeId, lines, songId }: { youtubeId: string; 
   const firstChorusIdx = useMemo(() => lines.findIndex((l) => l.is_chorus), [lines]);
 
   useEffect(() => {
-    const init = () => {
+    let cancelled = false;
+    let interval: number | undefined;
+
+    loadYouTubeAPI().then(() => {
+      if (cancelled) return;
+      // Destroy any prior instance (e.g., HMR or song change)
+      try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = new window.YT.Player("yt-player", {
         videoId: youtubeId,
-        playerVars: { controls: 1, modestbranding: 1, rel: 0 },
+        playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1, enablejsapi: 1 },
+        events: {
+          onReady: () => {
+            setPlayerReady(true);
+            interval = window.setInterval(() => {
+              const p = playerRef.current;
+              if (!p?.getCurrentTime) return;
+              const t = p.getCurrentTime();
+              const idx = lines.findIndex((l) => t >= l.start_seconds && t < l.end_seconds);
+              setActiveIdx((prev) => (idx !== prev ? idx : prev));
+            }, 250);
+          },
+        },
       });
+    });
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
+      playerRef.current = null;
+      setPlayerReady(false);
     };
-    if (window.YT?.Player) init();
-    else {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-      window.onYouTubeIframeAPIReady = init;
-    }
-    const interval = setInterval(() => {
-      const p = playerRef.current;
-      if (!p?.getCurrentTime) return;
-      const t = p.getCurrentTime();
-      const idx = lines.findIndex((l) => t >= l.start_seconds && t < l.end_seconds);
-      if (idx !== activeIdx) setActiveIdx(idx);
-    }, 250);
-    return () => clearInterval(interval);
-  }, [youtubeId, lines, activeIdx]);
+  }, [youtubeId, lines]);
 
   useEffect(() => {
     if (activeIdx < 0) return;
@@ -50,10 +80,13 @@ export const LyricsPlayer = ({ youtubeId, lines, songId }: { youtubeId: string; 
     if (firstChorusIdx < 0) return;
     const line = lines[firstChorusIdx];
     const p = playerRef.current;
-    if (p?.seekTo) {
-      p.seekTo(line.start_seconds, true);
-      p.playVideo?.();
+    if (!playerReady || !p?.seekTo) {
+      console.warn("[LyricsPlayer] Player not ready yet");
+      return;
     }
+    p.seekTo(line.start_seconds, true);
+    // playVideo can be blocked by autoplay policies; ignore failures
+    try { p.playVideo?.(); } catch { /* ignore */ }
     setActiveIdx(firstChorusIdx);
     lineRefs.current[firstChorusIdx]?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
@@ -71,7 +104,8 @@ export const LyricsPlayer = ({ youtubeId, lines, songId }: { youtubeId: string; 
             <Button
               size="sm"
               onClick={jumpToChorus}
-              className="bg-gradient-neon animate-gradient text-background font-semibold shadow-neon-pink hover:opacity-90"
+              disabled={!playerReady}
+              className="bg-gradient-neon animate-gradient text-background font-semibold shadow-neon-pink hover:opacity-90 disabled:opacity-50"
             >
               <SkipForward className="h-3.5 w-3.5 mr-1" />
               Jump to Chorus
