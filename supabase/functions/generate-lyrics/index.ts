@@ -186,14 +186,23 @@ Deno.serve(async (req) => {
     }
     console.log("Genius hit:", geniusHit.title, "by", geniusHit.artist, geniusHit.url);
 
-    // 2. Scrape full lyrics
-    const rawLyrics = await fetchGeniusLyrics(geniusHit.url);
+    // 2. Fetch lyrics — prefer lrclib.net (no auth, plain text), fall back to scraping Genius.
+    let rawLyrics = await fetchLrclibLyrics(geniusHit.title, geniusHit.artist);
+    let lyricsSource = "lrclib";
     if (!rawLyrics || rawLyrics.length < 50) {
-      return new Response(JSON.stringify({ error: "Genius returned empty lyrics for this song." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        rawLyrics = await fetchGeniusLyrics(geniusHit.url);
+        lyricsSource = "genius";
+      } catch (scrapeErr) {
+        console.warn("Genius scrape failed:", scrapeErr instanceof Error ? scrapeErr.message : scrapeErr);
+      }
+    }
+    if (!rawLyrics || rawLyrics.length < 50) {
+      return new Response(JSON.stringify({ error: "Couldn't retrieve lyrics for this song. Try another track." }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    console.log("Fetched lyrics length:", rawLyrics.length);
+    console.log(`Fetched lyrics from ${lyricsSource}, length:`, rawLyrics.length);
 
     // 3. Send to Gemini Flash for splitting, translation, chorus & timing
     const userPrompt = `Song title: "${geniusHit.title}"
