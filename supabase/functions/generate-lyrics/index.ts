@@ -140,6 +140,40 @@ function decodeAndStrip(fragment: string): string {
     .trim();
 }
 
+// lrclib.net: free, no-auth lyrics lookup. Returns plain (or synced) lyrics.
+async function fetchLrclibLyrics(title: string, artist: string): Promise<string | null> {
+  try {
+    const url = `https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+    const r = await fetch(url, { headers: { "User-Agent": "LovableLyrics/1.0 (https://lovable.dev)" } });
+    if (r.ok) {
+      const j = await r.json();
+      const text = (j.plainLyrics || j.syncedLyrics || "").toString();
+      if (text.trim().length > 50) return stripLrcTimestamps(text);
+    }
+    // Fallback: search endpoint
+    const s = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`, {
+      headers: { "User-Agent": "LovableLyrics/1.0 (https://lovable.dev)" },
+    });
+    if (!s.ok) return null;
+    const arr = await s.json();
+    const hit = Array.isArray(arr) ? arr.find((x: any) => x.plainLyrics || x.syncedLyrics) : null;
+    if (!hit) return null;
+    const text = (hit.plainLyrics || hit.syncedLyrics || "").toString();
+    return text.trim().length > 50 ? stripLrcTimestamps(text) : null;
+  } catch (e) {
+    console.warn("lrclib fetch error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+function stripLrcTimestamps(text: string): string {
+  return text
+    .split("\n")
+    .map((l) => l.replace(/^\s*\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*/, "").trim())
+    .filter((l) => l.length > 0)
+    .join("\n");
+}
+
 // --- Handler --------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -186,14 +220,23 @@ Deno.serve(async (req) => {
     }
     console.log("Genius hit:", geniusHit.title, "by", geniusHit.artist, geniusHit.url);
 
-    // 2. Scrape full lyrics
-    const rawLyrics = await fetchGeniusLyrics(geniusHit.url);
+    // 2. Fetch lyrics — prefer lrclib.net (no auth, plain text), fall back to scraping Genius.
+    let rawLyrics = await fetchLrclibLyrics(geniusHit.title, geniusHit.artist);
+    let lyricsSource = "lrclib";
     if (!rawLyrics || rawLyrics.length < 50) {
-      return new Response(JSON.stringify({ error: "Genius returned empty lyrics for this song." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        rawLyrics = await fetchGeniusLyrics(geniusHit.url);
+        lyricsSource = "genius";
+      } catch (scrapeErr) {
+        console.warn("Genius scrape failed:", scrapeErr instanceof Error ? scrapeErr.message : scrapeErr);
+      }
+    }
+    if (!rawLyrics || rawLyrics.length < 50) {
+      return new Response(JSON.stringify({ error: "Couldn't retrieve lyrics for this song. Try another track." }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    console.log("Fetched lyrics length:", rawLyrics.length);
+    console.log(`Fetched lyrics from ${lyricsSource}, length:`, rawLyrics.length);
 
     // 3. Send to Gemini Flash for splitting, translation, chorus & timing
     const userPrompt = `Song title: "${geniusHit.title}"
