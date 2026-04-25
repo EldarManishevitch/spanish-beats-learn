@@ -1,1 +1,10 @@
 project_id = "pqdllrerdufpxnjyvuzi"
+
+[functions.youtube-search]
+verify_jwt = true
+
+[functions.generate-lyrics]
+verify_jwt = true
+
+[functions.translate-word]
+verify_jwt = false

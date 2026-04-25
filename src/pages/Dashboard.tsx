@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Sparkles, Zap } from "lucide-react";
+import { SongSearch } from "@/components/SongSearch";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = { term: string; contextual_meaning: string; example_usage: string | null };
@@ -45,6 +46,8 @@ const Dashboard = () => {
           </div>
         </Card>
       )}
+
+      <SongSearch />
 
       <section>
         <div className="flex items-center gap-2 mb-4">

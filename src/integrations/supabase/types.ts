@@ -17,6 +17,7 @@ export type Database = {
       lyric_lines: {
         Row: {
           end_seconds: number
+          english_translation: string | null
           hebrew_translation: string
           id: string
           is_chorus: boolean
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           end_seconds: number
+          english_translation?: string | null
           hebrew_translation: string
           id?: string
           is_chorus?: boolean
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           end_seconds?: number
+          english_translation?: string | null
           hebrew_translation?: string
           id?: string
           is_chorus?: boolean
