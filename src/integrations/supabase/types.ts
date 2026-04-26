@@ -197,34 +197,43 @@ export type Database = {
         Row: {
           contextual_meaning: string
           created_at: string
+          english_equivalent: string | null
           example_song_artist: string | null
           example_song_title: string | null
           example_usage: string | null
           id: string
           is_urban_slang: boolean
+          literal_meaning: string | null
           lyrics_snippet: string | null
+          lyrics_snippet_translation: string | null
           term: string
         }
         Insert: {
           contextual_meaning: string
           created_at?: string
+          english_equivalent?: string | null
           example_song_artist?: string | null
           example_song_title?: string | null
           example_usage?: string | null
           id?: string
           is_urban_slang?: boolean
+          literal_meaning?: string | null
           lyrics_snippet?: string | null
+          lyrics_snippet_translation?: string | null
           term: string
         }
         Update: {
           contextual_meaning?: string
           created_at?: string
+          english_equivalent?: string | null
           example_song_artist?: string | null
           example_song_title?: string | null
           example_usage?: string | null
           id?: string
           is_urban_slang?: boolean
+          literal_meaning?: string | null
           lyrics_snippet?: string | null
+          lyrics_snippet_translation?: string | null
           term?: string
         }
         Relationships: []
