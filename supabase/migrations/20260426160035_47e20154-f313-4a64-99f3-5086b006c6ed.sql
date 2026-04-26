@@ -1,0 +1,1 @@
+ALTER TABLE public.lyric_lines ALTER COLUMN hebrew_translation DROP NOT NULL;
