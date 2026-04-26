@@ -5,7 +5,7 @@ type Line = {
   id: string;
   line_index: number;
   spanish_text: string;
-  hebrew_translation: string;
+  english_translation: string | null;
   start_seconds: number;
   end_seconds: number;
   is_chorus: boolean;
@@ -89,9 +89,11 @@ export const LyricsPlayer = ({
                     </span>
                   ))}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1" dir="rtl">
-                  {line.hebrew_translation}
-                </p>
+                {line.english_translation && (
+                  <p className="text-sm text-muted-foreground mt-1 italic">
+                    {line.english_translation}
+                  </p>
+                )}
               </div>
             );
           })}
