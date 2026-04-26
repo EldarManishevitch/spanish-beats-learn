@@ -23,6 +23,7 @@ You will be given original Spanish lyrics.
 
 Your job:
 - Split the lyrics into individual short lines, one lyrical phrase per line.
+- You MUST translate every single line of the provided lyrics. Do not skip any verses or shorten the song. If the input has 60 lines, the output must have 60 lines.
 - Preserve the original Spanish text exactly; do not paraphrase it.
 - For each line, provide a natural Hebrew translation in Hebrew script and a natural English translation.
 - Mark "is_chorus" = true ONLY for repeated hook/chorus lines. Verses, pre-chorus, bridge, intro, and outro are false.
@@ -200,6 +201,14 @@ function stripLrcTimestamps(text: string): string {
     .join("\n");
 }
 
+function countInputLyricLines(text: string): number {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^\[[^\]]+\]$/.test(line))
+    .length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
 
@@ -275,6 +284,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
 
+    const inputLineCount = countInputLyricLines(rawLyrics);
+    console.log(
+      `Sending lyrics to AI: ${rawLyrics.length} characters, ${inputLineCount} lyric lines, source=${lyricsSource}`,
+    );
+
     let parsed: any;
     try {
       const userPrompt = `Song title: "${geniusHit.title}"
@@ -293,6 +307,7 @@ ${rawLyrics}`;
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userPrompt },
           ],
+          max_tokens: 4000,
           tools: [TOOL],
           tool_choice: { type: "function", function: { name: "save_song" } },
         }),
@@ -312,6 +327,17 @@ ${rawLyrics}`;
       const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall?.function?.arguments) throw new Error("AI did not return translated lyric lines");
       parsed = JSON.parse(toolCall.function.arguments);
+
+      const outputLineCount = Array.isArray(parsed.lines) ? parsed.lines.length : 0;
+      if (inputLineCount >= 10 && outputLineCount < Math.ceil(inputLineCount * 0.8)) {
+        console.error(
+          `Incomplete AI translation detected: input lines=${inputLineCount}, output lines=${outputLineCount}`,
+        );
+        return jsonResponse(
+          { error: "AI returned incomplete lyrics. Please try again.", input_lines: inputLineCount, output_lines: outputLineCount },
+          502,
+        );
+      }
     } catch (error) {
       console.error("AI translation logic failed:", error instanceof Error ? error.message : error);
       return jsonResponse({ error: "AI translation failed. Please try again." }, 502);
