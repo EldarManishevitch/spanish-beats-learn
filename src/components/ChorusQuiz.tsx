@@ -6,7 +6,7 @@ import { Trophy, Check, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-type Line = { id: string; spanish_text: string; hebrew_translation: string; is_chorus: boolean };
+type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
 type Q = { line: Line; missing: string; options: string[]; words: string[]; missingIdx: number };
 
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
@@ -118,7 +118,9 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
           </span>
         ))}
       </div>
-      <p className="text-sm text-center text-muted-foreground" dir="rtl">{q.line.hebrew_translation}</p>
+      {q.line.english_translation && (
+        <p className="text-sm text-center text-muted-foreground italic">{q.line.english_translation}</p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         {q.options.map((opt) => {
           const isCorrect = answer && opt === q.missing;
