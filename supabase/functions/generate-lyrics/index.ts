@@ -307,6 +307,7 @@ ${rawLyrics}`;
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userPrompt },
           ],
+          max_tokens: 4000,
           tools: [TOOL],
           tool_choice: { type: "function", function: { name: "save_song" } },
         }),
@@ -326,6 +327,17 @@ ${rawLyrics}`;
       const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall?.function?.arguments) throw new Error("AI did not return translated lyric lines");
       parsed = JSON.parse(toolCall.function.arguments);
+
+      const outputLineCount = Array.isArray(parsed.lines) ? parsed.lines.length : 0;
+      if (inputLineCount >= 10 && outputLineCount < Math.ceil(inputLineCount * 0.8)) {
+        console.error(
+          `Incomplete AI translation detected: input lines=${inputLineCount}, output lines=${outputLineCount}`,
+        );
+        return jsonResponse(
+          { error: "AI returned incomplete lyrics. Please try again.", input_lines: inputLineCount, output_lines: outputLineCount },
+          502,
+        );
+      }
     } catch (error) {
       console.error("AI translation logic failed:", error instanceof Error ? error.message : error);
       return jsonResponse({ error: "AI translation failed. Please try again." }, 502);
