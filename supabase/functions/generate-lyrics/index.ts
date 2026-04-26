@@ -76,6 +76,29 @@ function cleanYoutubeTitle(raw: string): string {
     .trim();
 }
 
+function sanitizeArtist(artist: string): string {
+  return artist
+    .replace(/genius\s+(english|spanish|romanizations?|translations?)/gi, "")
+    .replace(/\(.*?\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/\((?:english|spanish)\s+translation\)/gi, "")
+    .replace(/\[(?:english|spanish)\s+translation\]/gi, "")
+    .replace(/-\s*(?:english|spanish)\s+translation/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitTitleArtist(cleaned: string): { title: string; artist: string } | null {
+  const m = cleaned.split(/\s+[-–—‒]\s+/);
+  if (m.length < 2) return null;
+  return { artist: m[0].trim(), title: m.slice(1).join(" - ").trim() };
+}
+
 async function searchGenius(query: string, token: string): Promise<{ title: string; artist: string; url: string } | null> {
   try {
     const response = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(query)}`, {
@@ -266,9 +289,32 @@ Deno.serve(async (req) => {
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
 
+    const cleanArtist = sanitizeArtist(geniusHit.artist);
+    const cleanTitle = sanitizeTitle(geniusHit.title);
+    const ytSplit = splitTitleArtist(cleanedTitle);
+
+    const lrclibAttempts: Array<{ title: string; artist: string }> = [
+      { title: cleanTitle, artist: cleanArtist },
+    ];
+    if (ytSplit) lrclibAttempts.push({ title: ytSplit.title, artist: ytSplit.artist });
+    if (channel) {
+      lrclibAttempts.push({
+        title: cleanedTitle,
+        artist: channel.replace(/\s*-?\s*Topic\s*$/i, "").trim(),
+      });
+    }
+
     try {
-      rawLyrics = await fetchLrclibLyrics(geniusHit.title, geniusHit.artist);
-      if (rawLyrics) lyricsSource = "lrclib";
+      for (const attempt of lrclibAttempts) {
+        if (!attempt.title || !attempt.artist) continue;
+        console.log("Trying lrclib:", attempt.title, "—", attempt.artist);
+        rawLyrics = await fetchLrclibLyrics(attempt.title, attempt.artist);
+        if (rawLyrics && rawLyrics.length >= 50) {
+          lyricsSource = "lrclib";
+          break;
+        }
+        rawLyrics = null;
+      }
 
       if (!rawLyrics || rawLyrics.length < 50) {
         rawLyrics = await fetchGeniusLyrics(geniusHit.url);
