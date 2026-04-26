@@ -1,26 +1,47 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Sparkles, Zap } from "lucide-react";
+import { Play, Sparkles, Zap, Music2 } from "lucide-react";
 import { SongSearch } from "@/components/SongSearch";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
-type Slang = { term: string; contextual_meaning: string; example_usage: string | null };
+type Slang = {
+  term: string;
+  contextual_meaning: string;
+  example_usage: string | null;
+  example_song_title: string | null;
+  example_song_artist: string | null;
+  lyrics_snippet: string | null;
+};
 
 const Dashboard = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [slang, setSlang] = useState<Slang | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     supabase.from("songs").select("*").then(({ data }) => setSongs(data ?? []));
-    supabase.from("slang_dictionary").select("term, contextual_meaning, example_usage").eq("is_urban_slang", true)
+    supabase
+      .from("slang_dictionary")
+      .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet")
+      .eq("is_urban_slang", true)
+      .not("example_song_title", "is", null)
       .then(({ data }) => {
-        if (data?.length) setSlang(data[Math.floor(Math.random() * data.length)]);
+        if (data?.length) setSlang(data[Math.floor(Math.random() * data.length)] as Slang);
       });
   }, []);
+
+  const matchedSong = useMemo(() => {
+    if (!slang?.example_song_title) return null;
+    const t = slang.example_song_title.toLowerCase();
+    const a = (slang.example_song_artist ?? "").toLowerCase();
+    return songs.find(
+      (s) => s.title.toLowerCase() === t && (!a || s.artist.toLowerCase().includes(a) || a.includes(s.artist.toLowerCase())),
+    ) ?? null;
+  }, [slang, songs]);
 
   return (
     <AppLayout>
