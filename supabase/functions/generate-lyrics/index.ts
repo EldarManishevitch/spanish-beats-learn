@@ -18,14 +18,14 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const SYSTEM_PROMPT = `You are a Spanish-language music expert helping a Hebrew-speaking learner.
+const SYSTEM_PROMPT = `You are a Spanish-language music expert helping an English-speaking learner.
 You will be given original Spanish lyrics.
 
 Your job:
 - Split the lyrics into individual short lines, one lyrical phrase per line.
-- You MUST translate every single line of the provided lyrics. Do not skip any verses or shorten the song. If the input has 60 lines, the output must have 60 lines.
+- You MUST translate every single line of the provided lyrics into natural, rhythmic English. Do not skip any verses or shorten the song. If the input has 60 lines, the output must have 60 lines.
 - Preserve the original Spanish text exactly; do not paraphrase it.
-- For each line, provide a natural Hebrew translation in Hebrew script and a natural English translation.
+- For each line, provide a natural English translation that reads smoothly while staying faithful to the meaning.
 - Mark "is_chorus" = true ONLY for repeated hook/chorus lines. Verses, pre-chorus, bridge, intro, and outro are false.
 - Skip section headers like [Chorus], [Verse 1], [Intro], etc. Do not include them as lyric lines.
 - Genre is one of: "reggaeton", "bachata", "pop latino", "trap latino", "merengue", "salsa", "rock latino".
@@ -52,11 +52,10 @@ const TOOL = {
             type: "object",
             properties: {
               spanish_text: { type: "string" },
-              hebrew_translation: { type: "string" },
               english_translation: { type: "string" },
               is_chorus: { type: "boolean" },
             },
-            required: ["spanish_text", "hebrew_translation", "english_translation", "is_chorus"],
+            required: ["spanish_text", "english_translation", "is_chorus"],
             additionalProperties: false,
           },
         },
