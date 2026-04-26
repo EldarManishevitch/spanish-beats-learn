@@ -67,6 +67,20 @@ const TOOL = {
   },
 };
 
+function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: number) {
+  return {
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.2,
+    max_tokens: maxTokens,
+    tools: [TOOL],
+    tool_choice: { type: "function", function: { name: "save_song" } },
+  };
+}
+
 function cleanYoutubeTitle(raw: string): string {
   return raw
     .replace(/\([^)]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live)[^)]*\)/gi, "")
