@@ -11,7 +11,7 @@ import { ArrowLeft, BookOpen, Music, Trophy, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string; album_art_url: string | null };
-type Line = { id: string; line_index: number; spanish_text: string; hebrew_translation: string; start_seconds: number; end_seconds: number; is_chorus: boolean };
+type Line = { id: string; line_index: number; spanish_text: string; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
 type Vocab = { word: string; hebrew: string; is_slang: boolean };
 type Flag = { word: string; miss_count: number };
 
@@ -89,7 +89,7 @@ const SongPage = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="font-bold capitalize text-lg">{v.word}</h4>
-                        <p className="text-primary" dir="rtl">{v.hebrew}</p>
+                        <p className="text-primary">{v.hebrew}</p>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         {v.is_slang && <Badge className="bg-accent text-accent-foreground">slang</Badge>}

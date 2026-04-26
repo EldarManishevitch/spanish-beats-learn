@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     if (slang) {
       return new Response(JSON.stringify({
         word: cleaned,
-        hebrew: slang.contextual_meaning,
+        translation: slang.contextual_meaning,
         example: slang.example_usage,
         is_slang: true,
         source: "slang",
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     if (cached) {
       return new Response(JSON.stringify({
         word: cleaned,
-        hebrew: cached.hebrew,
+        translation: cached.hebrew,
         pronunciation_hint: cached.pronunciation_hint,
         is_slang: false,
         source: "cache",
@@ -99,21 +99,21 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You translate single Spanish words into Hebrew. Reply ONLY via the provided tool." },
-          { role: "user", content: `Translate the Spanish word "${cleaned}" to Hebrew.` },
+          { role: "system", content: "You translate single Spanish words into natural English. Reply ONLY via the provided tool." },
+          { role: "user", content: `Translate the Spanish word "${cleaned}" to English.` },
         ],
         tools: [{
           type: "function",
           function: {
             name: "translate",
-            description: "Return Hebrew translation",
+            description: "Return English translation",
             parameters: {
               type: "object",
               properties: {
-                hebrew: { type: "string", description: "Hebrew translation" },
-                pronunciation_hint: { type: "string", description: "Phonetic Hebrew transliteration" },
+                translation: { type: "string", description: "Natural English translation" },
+                pronunciation_hint: { type: "string", description: "Simple phonetic English pronunciation guide" },
               },
-              required: ["hebrew", "pronunciation_hint"],
+              required: ["translation", "pronunciation_hint"],
               additionalProperties: false,
             },
           },
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     const args = toolCall ? JSON.parse(toolCall.function.arguments) : null;
 
-    if (!args?.hebrew) {
+    if (!args?.translation) {
       return new Response(JSON.stringify({ error: "No translation" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -153,13 +153,13 @@ Deno.serve(async (req) => {
     // cache
     await supabase.from("translations_cache").upsert({
       word: cleaned,
-      hebrew: args.hebrew,
+      hebrew: args.translation,
       pronunciation_hint: args.pronunciation_hint,
     }, { onConflict: "word" });
 
     return new Response(JSON.stringify({
       word: cleaned,
-      hebrew: args.hebrew,
+      translation: args.translation,
       pronunciation_hint: args.pronunciation_hint,
       is_slang: false,
       source: "ai",

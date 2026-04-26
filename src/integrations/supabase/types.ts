@@ -18,7 +18,7 @@ export type Database = {
         Row: {
           end_seconds: number
           english_translation: string | null
-          hebrew_translation: string
+          hebrew_translation: string | null
           id: string
           is_chorus: boolean
           line_index: number
@@ -29,7 +29,7 @@ export type Database = {
         Insert: {
           end_seconds: number
           english_translation?: string | null
-          hebrew_translation: string
+          hebrew_translation?: string | null
           id?: string
           is_chorus?: boolean
           line_index: number
@@ -40,7 +40,7 @@ export type Database = {
         Update: {
           end_seconds?: number
           english_translation?: string | null
-          hebrew_translation?: string
+          hebrew_translation?: string | null
           id?: string
           is_chorus?: boolean
           line_index?: number

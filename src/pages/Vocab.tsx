@@ -53,7 +53,7 @@ const Vocab = () => {
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
                   <h4 className="font-bold text-lg capitalize">{v.word}</h4>
-                  <p className="text-primary text-lg" dir="rtl">{v.hebrew}</p>
+                  <p className="text-primary text-lg">{v.hebrew}</p>
                 </div>
                 {v.is_slang && <Badge className="bg-accent text-accent-foreground">slang</Badge>}
               </div>
