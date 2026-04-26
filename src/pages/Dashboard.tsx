@@ -61,8 +61,41 @@ const Dashboard = () => {
             <div className="flex-1 min-w-0">
               <Badge className="mb-2 bg-accent text-accent-foreground hover:bg-accent">Slang of the Day</Badge>
               <h3 className="text-2xl font-bold mb-1 capitalize">{slang.term}</h3>
-              <p className="text-foreground/80" dir="rtl">{slang.contextual_meaning}</p>
-              {slang.example_usage && <p className="text-sm text-muted-foreground italic mt-2">"{slang.example_usage}"</p>}
+              <p className="text-foreground/80 mb-4" dir="rtl">{slang.contextual_meaning}</p>
+
+              {slang.example_song_title && (
+                <div className="border-t border-border/50 pt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                    <Music2 className="h-3.5 w-3.5" />
+                    <span>As heard in</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => matchedSong && navigate(`/song/${matchedSong.id}`)}
+                    disabled={!matchedSong}
+                    className={`group flex items-center gap-2 text-left ${
+                      matchedSong ? "cursor-pointer hover:text-primary" : "cursor-default"
+                    } transition-colors`}
+                  >
+                    {matchedSong && (
+                      <span className="h-7 w-7 rounded-full bg-primary/90 flex items-center justify-center shadow-neon-pink shrink-0 group-hover:scale-110 transition-transform">
+                        <Play className="h-3.5 w-3.5 text-background fill-background ml-0.5" />
+                      </span>
+                    )}
+                    <span className="font-semibold">
+                      {slang.example_song_title}
+                      {slang.example_song_artist && (
+                        <span className="text-muted-foreground font-normal"> · {slang.example_song_artist}</span>
+                      )}
+                    </span>
+                  </button>
+                  {slang.lyrics_snippet && (
+                    <p className="text-primary font-semibold italic neon-text pl-1 border-l-2 border-primary/60 pl-3">
+                      "{slang.lyrics_snippet}"
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </Card>
