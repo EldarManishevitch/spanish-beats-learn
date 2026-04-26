@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type Result = {
   word: string;
-  hebrew: string;
+  translation: string;
   is_slang: boolean;
   example?: string | null;
   pronunciation_hint?: string | null;
@@ -50,7 +50,7 @@ export const TranslateWord = ({ word, songId }: { word: string; songId?: string 
     const { error } = await supabase.from("saved_vocab").upsert({
       user_id: user.id,
       word: cleaned,
-      hebrew: result.hebrew,
+      hebrew: result.translation,
       source_song_id: songId ?? null,
       is_slang: result.is_slang,
     }, { onConflict: "user_id,word" });
@@ -82,9 +82,9 @@ export const TranslateWord = ({ word, songId }: { word: string; songId?: string 
                 </Badge>
               )}
             </div>
-            <p className="text-xl font-semibold text-primary" dir="rtl">{result.hebrew}</p>
+            <p className="text-xl font-semibold text-primary">{result.translation}</p>
             {result.example && <p className="text-xs italic text-muted-foreground">"{result.example}"</p>}
-            {result.pronunciation_hint && <p className="text-xs text-muted-foreground" dir="rtl">{result.pronunciation_hint}</p>}
+            {result.pronunciation_hint && <p className="text-xs text-muted-foreground">{result.pronunciation_hint}</p>}
             <div className="flex gap-2 pt-2">
               <Button size="sm" variant="outline" onClick={speak} className="flex-1">
                 <Volume2 className="h-3 w-3 mr-1" /> Hear
