@@ -76,6 +76,29 @@ function cleanYoutubeTitle(raw: string): string {
     .trim();
 }
 
+function sanitizeArtist(artist: string): string {
+  return artist
+    .replace(/genius\s+(english|spanish|romanizations?|translations?)/gi, "")
+    .replace(/\(.*?\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/\((?:english|spanish)\s+translation\)/gi, "")
+    .replace(/\[(?:english|spanish)\s+translation\]/gi, "")
+    .replace(/-\s*(?:english|spanish)\s+translation/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitTitleArtist(cleaned: string): { title: string; artist: string } | null {
+  const m = cleaned.split(/\s+[-–—‒]\s+/);
+  if (m.length < 2) return null;
+  return { artist: m[0].trim(), title: m.slice(1).join(" - ").trim() };
+}
+
 async function searchGenius(query: string, token: string): Promise<{ title: string; artist: string; url: string } | null> {
   try {
     const response = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(query)}`, {
