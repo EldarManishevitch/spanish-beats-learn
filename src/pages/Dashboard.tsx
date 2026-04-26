@@ -15,6 +15,9 @@ type Slang = {
   example_song_title: string | null;
   example_song_artist: string | null;
   lyrics_snippet: string | null;
+  literal_meaning: string | null;
+  english_equivalent: string | null;
+  lyrics_snippet_translation: string | null;
 };
 
 const Dashboard = () => {
@@ -26,7 +29,7 @@ const Dashboard = () => {
     supabase.from("songs").select("*").then(({ data }) => setSongs(data ?? []));
     supabase
       .from("slang_dictionary")
-      .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet")
+      .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
       .eq("is_urban_slang", true)
       .not("example_song_title", "is", null)
       .then(({ data }) => {
@@ -61,7 +64,30 @@ const Dashboard = () => {
             <div className="flex-1 min-w-0">
               <Badge className="mb-2 bg-accent text-accent-foreground hover:bg-accent">Slang of the Day</Badge>
               <h3 className="text-2xl font-bold mb-1 capitalize">{slang.term}</h3>
-              <p className="text-foreground/80 mb-4">{slang.contextual_meaning}</p>
+              <div className="space-y-1.5 mb-4 text-sm">
+                {slang.literal_meaning && (
+                  <p>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Literal</span>
+                    <span className="text-foreground/80">{slang.literal_meaning}</span>
+                  </p>
+                )}
+                <p>
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Meaning</span>
+                  <span className="text-foreground/90 font-medium">{slang.contextual_meaning}</span>
+                </p>
+                {slang.english_equivalent && (
+                  <p>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">English slang</span>
+                    <span className="text-accent">{slang.english_equivalent}</span>
+                  </p>
+                )}
+                {slang.example_usage && (
+                  <p>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Example</span>
+                    <span className="text-foreground/80 italic">"{slang.example_usage}"</span>
+                  </p>
+                )}
+              </div>
 
               {slang.example_song_title && (
                 <div className="border-t border-border/50 pt-3 space-y-2">
@@ -90,9 +116,12 @@ const Dashboard = () => {
                     </span>
                   </button>
                   {slang.lyrics_snippet && (
-                    <p className="text-primary font-semibold italic neon-text pl-1 border-l-2 border-primary/60 pl-3">
-                      "{slang.lyrics_snippet}"
-                    </p>
+                    <div className="border-l-2 border-primary/60 pl-3 space-y-1">
+                      <p className="text-primary font-semibold italic neon-text">"{slang.lyrics_snippet}"</p>
+                      {slang.lyrics_snippet_translation && (
+                        <p className="text-xs text-muted-foreground italic">"{slang.lyrics_snippet_translation}"</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
