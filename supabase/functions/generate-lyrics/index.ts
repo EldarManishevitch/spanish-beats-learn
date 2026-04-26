@@ -23,6 +23,7 @@ You will be given original Spanish lyrics.
 
 Your job:
 - Split the lyrics into individual short lines, one lyrical phrase per line.
+- You MUST translate every single line of the provided lyrics. Do not skip any verses or shorten the song. If the input has 60 lines, the output must have 60 lines.
 - Preserve the original Spanish text exactly; do not paraphrase it.
 - For each line, provide a natural Hebrew translation in Hebrew script and a natural English translation.
 - Mark "is_chorus" = true ONLY for repeated hook/chorus lines. Verses, pre-chorus, bridge, intro, and outro are false.
@@ -200,6 +201,14 @@ function stripLrcTimestamps(text: string): string {
     .join("\n");
 }
 
+function countInputLyricLines(text: string): number {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^\[[^\]]+\]$/.test(line))
+    .length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
 
@@ -274,6 +283,11 @@ Deno.serve(async (req) => {
       console.error("Could not retrieve lyrics from lrclib or Genius for:", geniusHit.title, geniusHit.artist);
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
+
+    const inputLineCount = countInputLyricLines(rawLyrics);
+    console.log(
+      `Sending lyrics to AI: ${rawLyrics.length} characters, ${inputLineCount} lyric lines, source=${lyricsSource}`,
+    );
 
     let parsed: any;
     try {
