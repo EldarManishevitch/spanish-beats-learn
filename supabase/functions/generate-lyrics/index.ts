@@ -289,9 +289,32 @@ Deno.serve(async (req) => {
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
 
+    const cleanArtist = sanitizeArtist(geniusHit.artist);
+    const cleanTitle = sanitizeTitle(geniusHit.title);
+    const ytSplit = splitTitleArtist(cleanedTitle);
+
+    const lrclibAttempts: Array<{ title: string; artist: string }> = [
+      { title: cleanTitle, artist: cleanArtist },
+    ];
+    if (ytSplit) lrclibAttempts.push({ title: ytSplit.title, artist: ytSplit.artist });
+    if (channel) {
+      lrclibAttempts.push({
+        title: cleanedTitle,
+        artist: channel.replace(/\s*-?\s*Topic\s*$/i, "").trim(),
+      });
+    }
+
     try {
-      rawLyrics = await fetchLrclibLyrics(geniusHit.title, geniusHit.artist);
-      if (rawLyrics) lyricsSource = "lrclib";
+      for (const attempt of lrclibAttempts) {
+        if (!attempt.title || !attempt.artist) continue;
+        console.log("Trying lrclib:", attempt.title, "—", attempt.artist);
+        rawLyrics = await fetchLrclibLyrics(attempt.title, attempt.artist);
+        if (rawLyrics && rawLyrics.length >= 50) {
+          lyricsSource = "lrclib";
+          break;
+        }
+        rawLyrics = null;
+      }
 
       if (!rawLyrics || rawLyrics.length < 50) {
         rawLyrics = await fetchGeniusLyrics(geniusHit.url);
