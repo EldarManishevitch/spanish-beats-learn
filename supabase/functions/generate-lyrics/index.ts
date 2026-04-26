@@ -432,7 +432,7 @@ ${rawLyrics}`;
       song_id: song.id,
       line_index: index,
       spanish_text: line.spanish_text,
-      hebrew_translation: line.hebrew_translation,
+      hebrew_translation: null,
       english_translation: line.english_translation,
       start_seconds: 0,
       end_seconds: 0,
