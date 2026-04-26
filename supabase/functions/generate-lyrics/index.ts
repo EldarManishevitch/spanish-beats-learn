@@ -67,6 +67,20 @@ const TOOL = {
   },
 };
 
+function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: number) {
+  return {
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.2,
+    max_tokens: maxTokens,
+    tools: [TOOL],
+    tool_choice: { type: "function", function: { name: "save_song" } },
+  };
+}
+
 function cleanYoutubeTitle(raw: string): string {
   return raw
     .replace(/\([^)]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live)[^)]*\)/gi, "")
@@ -344,19 +358,10 @@ Original Spanish lyrics:
 
 ${rawLyrics}`;
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      let aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 4000,
-          tools: [TOOL],
-          tool_choice: { type: "function", function: { name: "save_song" } },
-        }),
+        body: JSON.stringify(buildAiRequest(SYSTEM_PROMPT, userPrompt, 8192)),
       });
 
       if (!aiResponse.ok) {
@@ -369,8 +374,25 @@ ${rawLyrics}`;
         return jsonResponse({ error: "AI translation failed" }, 502);
       }
 
-      const aiData = await aiResponse.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      let aiData = await aiResponse.json();
+      let toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) {
+        console.warn("AI returned no tool call, retrying once:", JSON.stringify(aiData).slice(0, 1000));
+        aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify(buildAiRequest(`${SYSTEM_PROMPT}\nReturn ONLY by calling save_song.`, userPrompt, 12000)),
+        });
+
+        if (!aiResponse.ok) {
+          const text = await aiResponse.text();
+          console.error("AI translation retry error:", aiResponse.status, text);
+          return jsonResponse({ error: "AI translation failed" }, 502);
+        }
+
+        aiData = await aiResponse.json();
+        toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      }
       if (!toolCall?.function?.arguments) throw new Error("AI did not return translated lyric lines");
       parsed = JSON.parse(toolCall.function.arguments);
 
