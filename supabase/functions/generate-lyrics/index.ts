@@ -143,10 +143,11 @@ const TOOL = {
             type: "object",
             properties: {
               spanish_text: { type: "string" },
+              pronunciation: { type: "string", description: "Phonetic guide in English letters for the entire line, hyphenated by syllable, with CAPS on stressed syllable." },
               english_translation: { type: "string" },
               is_chorus: { type: "boolean" },
             },
-            required: ["spanish_text", "english_translation", "is_chorus"],
+            required: ["spanish_text", "pronunciation", "english_translation", "is_chorus"],
             additionalProperties: false,
           },
         },
