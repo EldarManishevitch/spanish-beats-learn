@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trophy, Check, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProgress } from "@/hooks/useProgress";
+import { UnlockCelebration } from "@/components/UnlockCelebration";
 import { toast } from "sonner";
 
 type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
@@ -14,10 +16,12 @@ const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 
 export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] }) => {
   const { user } = useAuth();
+  const { addXp, recompute, progress } = useProgress();
   const [idx, setIdx] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [unlock, setUnlock] = useState<{ open: boolean; title: string; subtitle?: string }>({ open: false, title: "" });
 
   const questions = useMemo<Q[]>(() => {
     const chorus = lines.filter((l) => l.is_chorus);
