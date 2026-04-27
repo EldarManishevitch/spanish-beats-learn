@@ -8,3 +8,9 @@ verify_jwt = true
 
 [functions.translate-word]
 verify_jwt = false
+
+[functions.generate-daily-phrases]
+verify_jwt = true
+
+[functions.generate-roleplay]
+verify_jwt = true
