@@ -535,6 +535,7 @@ ${rawLyrics}`;
       spanish_text: line.spanish_text,
       hebrew_translation: null,
       english_translation: line.english_translation,
+      pronunciation: line.pronunciation ?? null,
       start_seconds: 0,
       end_seconds: 0,
       is_chorus: Boolean(line.is_chorus),
