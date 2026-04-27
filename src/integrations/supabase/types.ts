@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_phrases_cache: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          payload: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          payload: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       lyric_lines: {
         Row: {
           end_seconds: number
@@ -99,26 +123,38 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cefr_level: string
           created_at: string
           display_name: string | null
           id: string
           learning_level: string | null
+          mastered_count: number
+          total_xp: number
+          unlocked_conversations: boolean
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          cefr_level?: string
           created_at?: string
           display_name?: string | null
           id: string
           learning_level?: string | null
+          mastered_count?: number
+          total_xp?: number
+          unlocked_conversations?: boolean
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          cefr_level?: string
           created_at?: string
           display_name?: string | null
           id?: string
           learning_level?: string | null
+          mastered_count?: number
+          total_xp?: number
+          unlocked_conversations?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -298,12 +334,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_vocab_stats: {
+        Row: {
+          correct_count: number
+          created_at: string
+          fail_count: number
+          id: string
+          is_mastered: boolean
+          last_reviewed: string
+          user_id: string
+          word: string
+        }
+        Insert: {
+          correct_count?: number
+          created_at?: string
+          fail_count?: number
+          id?: string
+          is_mastered?: boolean
+          last_reviewed?: string
+          user_id: string
+          word: string
+        }
+        Update: {
+          correct_count?: number
+          created_at?: string
+          fail_count?: number
+          id?: string
+          is_mastered?: boolean
+          last_reviewed?: string
+          user_id?: string
+          word?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recompute_cefr: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
