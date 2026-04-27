@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trophy, Check, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProgress } from "@/hooks/useProgress";
+import { UnlockCelebration } from "@/components/UnlockCelebration";
 import { toast } from "sonner";
 
 type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
@@ -14,10 +16,12 @@ const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 
 export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] }) => {
   const { user } = useAuth();
+  const { addXp, recompute, progress } = useProgress();
   const [idx, setIdx] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [unlock, setUnlock] = useState<{ open: boolean; title: string; subtitle?: string }>({ open: false, title: "" });
 
   const questions = useMemo<Q[]>(() => {
     const chorus = lines.filter((l) => l.is_chorus);
@@ -57,6 +61,33 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
     await supabase.from("practice_flags").delete().eq("user_id", user.id).eq("song_id", songId).eq("word", word);
   };
 
+  const updateVocabStat = async (word: string, isCorrect: boolean) => {
+    if (!user) return;
+    const { data: existing } = await supabase
+      .from("user_vocab_stats")
+      .select("id, fail_count, correct_count, is_mastered")
+      .eq("user_id", user.id).eq("word", word).maybeSingle();
+    const now = new Date().toISOString();
+    if (existing) {
+      const fc = isCorrect ? existing.fail_count : existing.fail_count + 1;
+      const cc = isCorrect ? existing.correct_count + 1 : existing.correct_count;
+      const mastered = isCorrect && cc >= 3 && fc === 0;
+      await supabase.from("user_vocab_stats").update({
+        fail_count: fc, correct_count: cc,
+        is_mastered: mastered || existing.is_mastered,
+        last_reviewed: now,
+      }).eq("id", existing.id);
+      if (mastered && !existing.is_mastered) await addXp(25);
+    } else {
+      await supabase.from("user_vocab_stats").insert({
+        user_id: user.id, word,
+        fail_count: isCorrect ? 0 : 1,
+        correct_count: isCorrect ? 1 : 0,
+        last_reviewed: now,
+      });
+    }
+  };
+
   const choose = async (opt: string) => {
     if (answer) return;
     setAnswer(opt);
@@ -64,8 +95,11 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
     if (correct) {
       setScore((s) => s + 1);
       await clearFlag(q.missing);
+      await updateVocabStat(q.missing, true);
+      await addXp(5);
     } else {
       await flagWrong(q.missing);
+      await updateVocabStat(q.missing, false);
     }
   };
 
@@ -74,6 +108,9 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
       setDone(true);
       if (user) {
         await supabase.from("quiz_attempts").insert({ user_id: user.id, song_id: songId, score, total: questions.length });
+        const r = await recompute();
+        if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
+        else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });
       }
       toast.success(`Score: ${score}/${questions.length}`);
     } else {
@@ -89,14 +126,17 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
     return (
-      <Card className="glass p-8 text-center neon-border-pink">
-        <Trophy className="h-16 w-16 mx-auto text-accent mb-4" />
-        <h3 className="text-3xl font-bold mb-2 neon-text">{pct}%</h3>
-        <p className="text-muted-foreground mb-6">{score} / {questions.length} correct</p>
-        <Button onClick={restart} className="bg-gradient-neon animate-gradient text-background">
-          <RotateCcw className="h-4 w-4 mr-2" /> Play again
-        </Button>
-      </Card>
+      <>
+        <UnlockCelebration open={unlock.open} title={unlock.title} subtitle={unlock.subtitle} onClose={() => setUnlock({ open: false, title: "" })} />
+        <Card className="glass p-8 text-center neon-border-pink">
+          <Trophy className="h-16 w-16 mx-auto text-accent mb-4" />
+          <h3 className="text-3xl font-bold mb-2 neon-text">{pct}%</h3>
+          <p className="text-muted-foreground mb-6">{score} / {questions.length} correct</p>
+          <Button onClick={restart} className="bg-gradient-neon animate-gradient text-background">
+            <RotateCcw className="h-4 w-4 mr-2" /> Play again
+          </Button>
+        </Card>
+      </>
     );
   }
 
