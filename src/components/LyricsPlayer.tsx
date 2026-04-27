@@ -90,6 +90,11 @@ export const LyricsPlayer = ({
                     </span>
                   ))}
                 </p>
+                {line.pronunciation && (
+                  <p className="text-sm text-accent/90 mt-1 italic tracking-wide">
+                    {line.pronunciation}
+                  </p>
+                )}
                 {line.english_translation && (
                   <p className="text-sm text-muted-foreground mt-1 italic">
                     {line.english_translation}
