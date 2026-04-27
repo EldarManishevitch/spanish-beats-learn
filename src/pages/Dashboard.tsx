@@ -26,7 +26,11 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.from("songs").select("*").then(({ data }) => setSongs(data ?? []));
+    supabase
+      .from("songs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setSongs(data ?? []));
     supabase
       .from("slang_dictionary")
       .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
