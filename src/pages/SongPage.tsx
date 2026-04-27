@@ -11,7 +11,7 @@ import { ArrowLeft, BookOpen, Music, Trophy, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string; album_art_url: string | null };
-type Line = { id: string; line_index: number; spanish_text: string; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
+type Line = { id: string; line_index: number; spanish_text: string; pronunciation: string | null; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
 type Vocab = { word: string; hebrew: string; is_slang: boolean };
 type Flag = { word: string; miss_count: number };
 
