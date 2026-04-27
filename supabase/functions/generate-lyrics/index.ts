@@ -423,13 +423,22 @@ Deno.serve(async (req) => {
         rawLyrics = await fetchGeniusLyrics(geniusHit.url);
         if (rawLyrics) lyricsSource = "genius";
       }
+
+      if (!rawLyrics || rawLyrics.length < 50) {
+        console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
+        rawLyrics = await fetchWebFallbackLyrics(cleanTitle, cleanArtist, LOVABLE_API_KEY);
+        if (rawLyrics) {
+          lyricsSource = "web_fallback";
+          console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
+        }
+      }
     } catch (error) {
       console.error("Lyrics retrieval failed:", error instanceof Error ? error.message : error);
       return jsonResponse({ error: "Lyrics retrieval failed. Please try another track." }, 502);
     }
 
     if (!rawLyrics || rawLyrics.length < 50) {
-      console.error("Could not retrieve lyrics from lrclib or Genius for:", geniusHit.title, geniusHit.artist);
+      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", geniusHit.title, geniusHit.artist);
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
 
