@@ -139,7 +139,7 @@ const Dashboard = () => {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Zap className="h-5 w-5 text-primary" />
-          <h2 className="text-2xl font-bold">Featured Songs</h2>
+          <h2 className="text-2xl font-bold">Last Searched</h2>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {songs.map((s) => (
