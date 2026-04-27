@@ -31,6 +31,96 @@ Your job:
 - Genre is one of: "reggaeton", "bachata", "pop latino", "trap latino", "merengue", "salsa", "rock latino".
 - difficulty is one of: "beginner", "intermediate", "advanced".`;
 
+const WEB_EXTRACT_SYSTEM_PROMPT = `You extract Spanish song lyrics from messy web-scrape text.
+Input is raw markdown/text from lyrics websites (letras.com, azlyrics, musixmatch, genius, etc.) and may contain navigation, ads, related songs, comments, "Submit corrections", cookie banners, and translations.
+Your job: return ONLY the original Spanish lyrics of the requested song, one line per row, in performance order. Skip section headers like [Chorus]. Skip everything that is not a sung lyric line. Do not invent lines. If the text does not actually contain the lyrics, return an empty string.
+Output: plain text, no commentary, no markdown, no code fences.`;
+
+async function fetchWebFallbackLyrics(
+  title: string,
+  artist: string,
+  lovableApiKey: string,
+): Promise<string | null> {
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!firecrawlKey) {
+    console.warn("FIRECRAWL_API_KEY not set; skipping web fallback");
+    return null;
+  }
+
+  const query = `${artist} ${title} letra lyrics Spanish`;
+  console.log("Web fallback: searching Firecrawl for:", query);
+
+  let searchData: any;
+  try {
+    const searchResponse = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${firecrawlKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        limit: 3,
+        scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+      }),
+    });
+    if (!searchResponse.ok) {
+      console.error("Firecrawl search failed:", searchResponse.status, await searchResponse.text());
+      return null;
+    }
+    searchData = await searchResponse.json();
+  } catch (error) {
+    console.error("Firecrawl request failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+
+  const results: any[] = searchData?.data?.web ?? searchData?.data ?? [];
+  const blobs = results
+    .map((r: any) => {
+      const md = (r.markdown ?? r.content ?? r.description ?? "").toString();
+      const url = r.url ?? r.link ?? "";
+      return md.length > 100 ? `Source: ${url}\n\n${md}` : null;
+    })
+    .filter(Boolean) as string[];
+
+  if (blobs.length === 0) {
+    console.warn("Web fallback: no usable scrape content from Firecrawl");
+    return null;
+  }
+
+  const combined = blobs.join("\n\n---\n\n").slice(0, 30000);
+  console.log(`Web fallback: sending ${combined.length} chars from ${blobs.length} sources to AI for extraction`);
+
+  try {
+    const extractResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: WEB_EXTRACT_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Song: "${title}" by ${artist}\n\nScraped web content:\n\n${combined}`,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
+    });
+    if (!extractResponse.ok) {
+      console.error("Web fallback extraction failed:", extractResponse.status, await extractResponse.text());
+      return null;
+    }
+    const extractData = await extractResponse.json();
+    const lyrics = (extractData.choices?.[0]?.message?.content ?? "").toString().trim();
+    return lyrics.length > 50 ? lyrics : null;
+  } catch (error) {
+    console.error("Web fallback extraction request failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
 const TOOL = {
   type: "function" as const,
   function: {
@@ -333,13 +423,22 @@ Deno.serve(async (req) => {
         rawLyrics = await fetchGeniusLyrics(geniusHit.url);
         if (rawLyrics) lyricsSource = "genius";
       }
+
+      if (!rawLyrics || rawLyrics.length < 50) {
+        console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
+        rawLyrics = await fetchWebFallbackLyrics(cleanTitle, cleanArtist, LOVABLE_API_KEY);
+        if (rawLyrics) {
+          lyricsSource = "web_fallback";
+          console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
+        }
+      }
     } catch (error) {
       console.error("Lyrics retrieval failed:", error instanceof Error ? error.message : error);
       return jsonResponse({ error: "Lyrics retrieval failed. Please try another track." }, 502);
     }
 
     if (!rawLyrics || rawLyrics.length < 50) {
-      console.error("Could not retrieve lyrics from lrclib or Genius for:", geniusHit.title, geniusHit.artist);
+      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", geniusHit.title, geniusHit.artist);
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
 
