@@ -61,6 +61,33 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
     await supabase.from("practice_flags").delete().eq("user_id", user.id).eq("song_id", songId).eq("word", word);
   };
 
+  const updateVocabStat = async (word: string, isCorrect: boolean) => {
+    if (!user) return;
+    const { data: existing } = await supabase
+      .from("user_vocab_stats")
+      .select("id, fail_count, correct_count, is_mastered")
+      .eq("user_id", user.id).eq("word", word).maybeSingle();
+    const now = new Date().toISOString();
+    if (existing) {
+      const fc = isCorrect ? existing.fail_count : existing.fail_count + 1;
+      const cc = isCorrect ? existing.correct_count + 1 : existing.correct_count;
+      const mastered = isCorrect && cc >= 3 && fc === 0;
+      await supabase.from("user_vocab_stats").update({
+        fail_count: fc, correct_count: cc,
+        is_mastered: mastered || existing.is_mastered,
+        last_reviewed: now,
+      }).eq("id", existing.id);
+      if (mastered && !existing.is_mastered) await addXp(25);
+    } else {
+      await supabase.from("user_vocab_stats").insert({
+        user_id: user.id, word,
+        fail_count: isCorrect ? 0 : 1,
+        correct_count: isCorrect ? 1 : 0,
+        last_reviewed: now,
+      });
+    }
+  };
+
   const choose = async (opt: string) => {
     if (answer) return;
     setAnswer(opt);
@@ -68,8 +95,11 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
     if (correct) {
       setScore((s) => s + 1);
       await clearFlag(q.missing);
+      await updateVocabStat(q.missing, true);
+      await addXp(5);
     } else {
       await flagWrong(q.missing);
+      await updateVocabStat(q.missing, false);
     }
   };
 
@@ -78,6 +108,9 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
       setDone(true);
       if (user) {
         await supabase.from("quiz_attempts").insert({ user_id: user.id, song_id: songId, score, total: questions.length });
+        const r = await recompute();
+        if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
+        else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });
       }
       toast.success(`Score: ${score}/${questions.length}`);
     } else {
