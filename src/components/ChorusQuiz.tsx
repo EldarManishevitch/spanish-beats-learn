@@ -126,14 +126,17 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
     return (
-      <Card className="glass p-8 text-center neon-border-pink">
-        <Trophy className="h-16 w-16 mx-auto text-accent mb-4" />
-        <h3 className="text-3xl font-bold mb-2 neon-text">{pct}%</h3>
-        <p className="text-muted-foreground mb-6">{score} / {questions.length} correct</p>
-        <Button onClick={restart} className="bg-gradient-neon animate-gradient text-background">
-          <RotateCcw className="h-4 w-4 mr-2" /> Play again
-        </Button>
-      </Card>
+      <>
+        <UnlockCelebration open={unlock.open} title={unlock.title} subtitle={unlock.subtitle} onClose={() => setUnlock({ open: false, title: "" })} />
+        <Card className="glass p-8 text-center neon-border-pink">
+          <Trophy className="h-16 w-16 mx-auto text-accent mb-4" />
+          <h3 className="text-3xl font-bold mb-2 neon-text">{pct}%</h3>
+          <p className="text-muted-foreground mb-6">{score} / {questions.length} correct</p>
+          <Button onClick={restart} className="bg-gradient-neon animate-gradient text-background">
+            <RotateCcw className="h-4 w-4 mr-2" /> Play again
+          </Button>
+        </Card>
+      </>
     );
   }
 
