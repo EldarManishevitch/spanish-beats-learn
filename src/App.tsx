@@ -9,6 +9,9 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SongPage from "./pages/SongPage";
 import Vocab from "./pages/Vocab";
+import ReviewRoom from "./pages/ReviewRoom";
+import Conversations from "./pages/Conversations";
+import Roleplay from "./pages/Roleplay";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -25,6 +28,9 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/song/:id" element={<ProtectedRoute><SongPage /></ProtectedRoute>} />
             <Route path="/vocab" element={<ProtectedRoute><Vocab /></ProtectedRoute>} />
+            <Route path="/review" element={<ProtectedRoute><ReviewRoom /></ProtectedRoute>} />
+            <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
+            <Route path="/roleplay" element={<ProtectedRoute><Roleplay /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

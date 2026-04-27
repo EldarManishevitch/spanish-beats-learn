@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music, BookOpen, LogOut, Sparkles } from "lucide-react";
+import { Music, BookOpen, LogOut, Sparkles, RotateCcw, MessageCircle, Mic } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { CefrBadge } from "@/components/CefrBadge";
 import { ReactNode } from "react";
 
 export const AppLayout = ({ children }: { children: ReactNode }) => {
@@ -11,9 +12,9 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => {
     const active = loc.pathname === to || (to !== "/" && loc.pathname.startsWith(to));
     return (
-      <Link to={to} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/15 text-primary neon-border-pink" : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"}`}>
+      <Link to={to} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/15 text-primary neon-border-pink" : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"}`}>
         <Icon className="h-4 w-4" />
-        <span className="hidden sm:inline">{label}</span>
+        <span className="hidden md:inline">{label}</span>
       </Link>
     );
   };
@@ -21,19 +22,22 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 glass border-b">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+        <div className="container flex h-16 items-center justify-between gap-2">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <div className="h-9 w-9 rounded-xl bg-gradient-neon animate-gradient flex items-center justify-center shadow-neon-pink">
               <Music className="h-5 w-5 text-background" />
             </div>
-            <span className="text-xl font-bold neon-text">Ritmo</span>
+            <span className="text-xl font-bold neon-text hidden sm:inline">Ritmo</span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 flex-wrap">
             <NavItem to="/" icon={Sparkles} label="Discover" />
             <NavItem to="/vocab" icon={BookOpen} label="Vocab" />
+            <NavItem to="/review" icon={RotateCcw} label="Review" />
+            <NavItem to="/conversations" icon={MessageCircle} label="Talk" />
+            <NavItem to="/roleplay" icon={Mic} label="Roleplay" />
           </nav>
-          <div className="flex items-center gap-2">
-            <span className="hidden md:inline text-sm text-muted-foreground truncate max-w-[140px]">{user?.email}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <CefrBadge />
             <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="h-4 w-4" /></Button>
           </div>
         </div>
