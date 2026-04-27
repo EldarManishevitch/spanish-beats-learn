@@ -5,6 +5,7 @@ type Line = {
   id: string;
   line_index: number;
   spanish_text: string;
+  pronunciation: string | null;
   english_translation: string | null;
   start_seconds: number;
   end_seconds: number;
