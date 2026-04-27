@@ -43,10 +43,6 @@ export const SongSearch = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast({
-        title: data.existed ? "Song already in library" : "Lyrics generated!",
-        description: data.existed ? "Opening it now…" : `${data.lines_count} lines created.`,
-      });
       navigate(`/song/${data.song_id}`);
     } catch (err) {
       console.error(err);

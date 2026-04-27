@@ -22,6 +22,7 @@ export type Database = {
           id: string
           is_chorus: boolean
           line_index: number
+          pronunciation: string | null
           song_id: string
           spanish_text: string
           start_seconds: number
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           is_chorus?: boolean
           line_index: number
+          pronunciation?: string | null
           song_id: string
           spanish_text: string
           start_seconds: number
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           is_chorus?: boolean
           line_index?: number
+          pronunciation?: string | null
           song_id?: string
           spanish_text?: string
           start_seconds?: number

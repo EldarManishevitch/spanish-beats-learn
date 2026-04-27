@@ -1,0 +1,1 @@
+ALTER TABLE public.lyric_lines ADD COLUMN IF NOT EXISTS pronunciation text;

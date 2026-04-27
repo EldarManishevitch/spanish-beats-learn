@@ -26,6 +26,7 @@ Your job:
 - You MUST translate every single line of the provided lyrics into natural, rhythmic English. Do not skip any verses or shorten the song. If the input has 60 lines, the output must have 60 lines.
 - Preserve the original Spanish text exactly; do not paraphrase it.
 - For each line, provide a natural English translation that reads smoothly while staying faithful to the meaning.
+- For each line, also provide a "pronunciation" field: a phonetic guide using English letters that helps an English speaker pronounce the Spanish line. Use hyphens between syllables and CAPS for the stressed syllable (e.g., "Despacito" -> "Des-pah-SEE-toh", "Corazón" -> "Co-rah-SOHN"). Cover the entire line, not just one word.
 - Mark "is_chorus" = true ONLY for repeated hook/chorus lines. Verses, pre-chorus, bridge, intro, and outro are false.
 - Skip section headers like [Chorus], [Verse 1], [Intro], etc. Do not include them as lyric lines.
 - Genre is one of: "reggaeton", "bachata", "pop latino", "trap latino", "merengue", "salsa", "rock latino".
@@ -142,10 +143,11 @@ const TOOL = {
             type: "object",
             properties: {
               spanish_text: { type: "string" },
+              pronunciation: { type: "string", description: "Phonetic guide in English letters for the entire line, hyphenated by syllable, with CAPS on stressed syllable." },
               english_translation: { type: "string" },
               is_chorus: { type: "boolean" },
             },
-            required: ["spanish_text", "english_translation", "is_chorus"],
+            required: ["spanish_text", "pronunciation", "english_translation", "is_chorus"],
             additionalProperties: false,
           },
         },
@@ -533,6 +535,7 @@ ${rawLyrics}`;
       spanish_text: line.spanish_text,
       hebrew_translation: null,
       english_translation: line.english_translation,
+      pronunciation: line.pronunciation ?? null,
       start_seconds: 0,
       end_seconds: 0,
       is_chorus: Boolean(line.is_chorus),

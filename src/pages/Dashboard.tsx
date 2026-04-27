@@ -26,7 +26,11 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.from("songs").select("*").then(({ data }) => setSongs(data ?? []));
+    supabase
+      .from("songs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setSongs(data ?? []));
     supabase
       .from("slang_dictionary")
       .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
@@ -135,7 +139,7 @@ const Dashboard = () => {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Zap className="h-5 w-5 text-primary" />
-          <h2 className="text-2xl font-bold">Featured Songs</h2>
+          <h2 className="text-2xl font-bold">Last Searched</h2>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {songs.map((s) => (
