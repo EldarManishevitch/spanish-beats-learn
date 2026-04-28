@@ -30,6 +30,7 @@ const Dashboard = () => {
       .from("songs")
       .select("*")
       .order("created_at", { ascending: false })
+      .limit(6)
       .then(({ data }) => setSongs(data ?? []));
     supabase
       .from("slang_dictionary")
@@ -54,9 +55,9 @@ const Dashboard = () => {
     <AppLayout>
       <section className="mb-10 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">
-          <span className="neon-text">Suena</span> the Latin beat
+          <span className="neon-text">Ritmo</span> - the spanish song teacher
         </h1>
-        <p className="text-muted-foreground text-lg">Pick a song. Sing along. Pick up Spanish.</p>
+        <p className="text-muted-foreground text-lg">Pick a song, Sing along & Pick up Spanish.</p>
       </section>
 
       {slang && (
