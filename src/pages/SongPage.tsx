@@ -7,19 +7,43 @@ import { ChorusQuiz } from "@/components/ChorusQuiz";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, BookOpen, Music, Trophy, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { getCachedSong, prefetchSong } from "@/lib/songCache";
 
 type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string; album_art_url: string | null };
 type Line = { id: string; line_index: number; spanish_text: string; pronunciation: string | null; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
 type Vocab = { word: string; hebrew: string; is_slang: boolean };
 type Flag = { word: string; miss_count: number };
 
+const SongSkeleton = () => (
+  <AppLayout>
+    <div className="mb-4"><Skeleton className="h-5 w-16" /></div>
+    <header className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-6">
+      <Skeleton className="h-24 w-24 rounded-xl" />
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-5 w-40" />
+      </div>
+    </header>
+    <Skeleton className="h-10 w-72 mb-6" />
+    <Skeleton className="aspect-video w-full rounded-xl mb-4" />
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-16 w-full rounded-lg" />
+      ))}
+    </div>
+  </AppLayout>
+);
+
 const SongPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const [song, setSong] = useState<Song | null>(null);
-  const [lines, setLines] = useState<Line[]>([]);
+  const cached = id ? getCachedSong(id) : undefined;
+  const [song, setSong] = useState<Song | null>(cached?.song ?? null);
+  const [lines, setLines] = useState<Line[]>(cached?.lines ?? []);
   const [vocab, setVocab] = useState<Vocab[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
 
@@ -33,12 +57,25 @@ const SongPage = () => {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from("songs").select("*").eq("id", id).maybeSingle().then(({ data }) => setSong(data));
-    supabase.from("lyric_lines").select("*").eq("song_id", id).order("line_index").then(({ data }) => setLines(data ?? []));
+    const c = getCachedSong(id);
+    if (c?.song) { setSong(c.song); setLines(c.lines ?? []); }
+    else if (c?.promise) {
+      c.promise.then(() => {
+        const u = getCachedSong(id);
+        if (u?.song) { setSong(u.song); setLines(u.lines ?? []); }
+      });
+    } else {
+      prefetchSong(id);
+      const u = getCachedSong(id);
+      u?.promise?.then(() => {
+        const f = getCachedSong(id);
+        if (f?.song) { setSong(f.song); setLines(f.lines ?? []); }
+      });
+    }
     loadVocab();
   }, [id, user]);
 
-  if (!song) return <AppLayout><div className="flex justify-center py-20"><Music className="h-10 w-10 text-primary animate-pulse" /></div></AppLayout>;
+  if (!song) return <SongSkeleton />;
 
   const flaggedSet = new Set(flags.map((f) => f.word));
 
