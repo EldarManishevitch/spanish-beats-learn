@@ -435,7 +435,11 @@ Deno.serve(async (req) => {
 
       if (!rawLyrics || rawLyrics.length < 50) {
         console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
-        rawLyrics = await fetchWebFallbackLyrics(cleanTitle, cleanArtist, LOVABLE_API_KEY);
+        // Prefer YouTube-derived artist/title — Genius hits are often compilation pages
+        // ("Genius en Español — Sencillos del Mes…") that poison the web search.
+        const fbTitle = ytSplit?.title || cleanTitle;
+        const fbArtist = ytSplit?.artist || cleanArtist;
+        rawLyrics = await fetchWebFallbackLyrics(fbTitle, fbArtist, LOVABLE_API_KEY);
         if (rawLyrics) {
           lyricsSource = "web_fallback";
           console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
