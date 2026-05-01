@@ -115,7 +115,14 @@ async function fetchWebFallbackLyrics(
     }
     const extractData = await extractResponse.json();
     const lyrics = (extractData.choices?.[0]?.message?.content ?? "").toString().trim();
-    return lyrics.length > 50 ? lyrics : null;
+    // Real song lyrics are virtually always >300 chars and have multiple lines.
+    // Anything shorter is almost certainly a track-listing page or a snippet, not real lyrics.
+    const lineCount = lyrics.split("\n").map((l) => l.trim()).filter(Boolean).length;
+    if (lyrics.length < 300 || lineCount < 8) {
+      console.warn(`Web fallback returned too little content (${lyrics.length} chars, ${lineCount} lines); discarding`);
+      return null;
+    }
+    return lyrics;
   } catch (error) {
     console.error("Web fallback extraction request failed:", error instanceof Error ? error.message : error);
     return null;
