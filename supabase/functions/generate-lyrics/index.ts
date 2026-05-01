@@ -179,11 +179,32 @@ function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: num
   };
 }
 
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
 function cleanYoutubeTitle(raw: string): string {
-  return raw
-    .replace(/\([^)]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live)[^)]*\)/gi, "")
-    .replace(/\[[^\]]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live)[^\]]*\]/gi, "")
+  return decodeHtmlEntities(raw)
+    .replace(/\([^)]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live|version|anniversary|edit|extended|remaster(?:ed)?|4k|mv|m\/v)[^)]*\)/gi, "")
+    .replace(/\[[^\]]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live|version|anniversary|edit|extended|remaster(?:ed)?|4k|mv|m\/v)[^\]]*\]/gi, "")
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Strip featuring credits and trailing junk for a more Genius-friendly query
+function simplifyForSearch(s: string): string {
+  return s
+    .replace(/\s*[\(\[][^)\]]*(?:feat\.?|ft\.?|featuring|with|prod\.?|remix|version|edit)[^)\]]*[\)\]]/gi, "")
+    .replace(/\s+(?:feat\.?|ft\.?|featuring|with)\s+.+$/i, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -386,8 +407,30 @@ Deno.serve(async (req) => {
     try {
       console.log("Searching Genius for:", cleanedTitle);
       geniusHit = await searchGenius(cleanedTitle, GENIUS_TOKEN);
+
+      // Fallback 1: simplified query (drop feat./version/remix junk)
+      if (!geniusHit) {
+        const simplified = simplifyForSearch(cleanedTitle);
+        if (simplified && simplified !== cleanedTitle) {
+          console.log("Genius retry with simplified query:", simplified);
+          geniusHit = await searchGenius(simplified, GENIUS_TOKEN);
+        }
+      }
+
+      // Fallback 2: just the part before " - " (typically "Artist - Title")
+      if (!geniusHit) {
+        const split = splitTitleArtist(cleanedTitle);
+        if (split) {
+          const q = simplifyForSearch(`${split.artist} ${split.title}`);
+          console.log("Genius retry with artist+title split:", q);
+          geniusHit = await searchGenius(q, GENIUS_TOKEN);
+        }
+      }
+
+      // Fallback 3: append channel name
       if (!geniusHit && channel) {
-        geniusHit = await searchGenius(`${cleanedTitle} ${channel.replace(/\s*-?\s*Topic\s*$/i, "")}`, GENIUS_TOKEN);
+        const ch = channel.replace(/\s*-?\s*(?:Topic|VEVO)\s*$/i, "").trim();
+        geniusHit = await searchGenius(`${simplifyForSearch(cleanedTitle)} ${ch}`, GENIUS_TOKEN);
       }
     } catch (error) {
       console.error("Genius search failed for selected track:", error instanceof Error ? error.message : error);
