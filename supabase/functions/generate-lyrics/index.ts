@@ -115,7 +115,14 @@ async function fetchWebFallbackLyrics(
     }
     const extractData = await extractResponse.json();
     const lyrics = (extractData.choices?.[0]?.message?.content ?? "").toString().trim();
-    return lyrics.length > 50 ? lyrics : null;
+    // Real song lyrics are virtually always >300 chars and have multiple lines.
+    // Anything shorter is almost certainly a track-listing page or a snippet, not real lyrics.
+    const lineCount = lyrics.split("\n").map((l) => l.trim()).filter(Boolean).length;
+    if (lyrics.length < 300 || lineCount < 8) {
+      console.warn(`Web fallback returned too little content (${lyrics.length} chars, ${lineCount} lines); discarding`);
+      return null;
+    }
+    return lyrics;
   } catch (error) {
     console.error("Web fallback extraction request failed:", error instanceof Error ? error.message : error);
     return null;
@@ -428,7 +435,11 @@ Deno.serve(async (req) => {
 
       if (!rawLyrics || rawLyrics.length < 50) {
         console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
-        rawLyrics = await fetchWebFallbackLyrics(cleanTitle, cleanArtist, LOVABLE_API_KEY);
+        // Prefer YouTube-derived artist/title — Genius hits are often compilation pages
+        // ("Genius en Español — Sencillos del Mes…") that poison the web search.
+        const fbTitle = ytSplit?.title || cleanTitle;
+        const fbArtist = ytSplit?.artist || cleanArtist;
+        rawLyrics = await fetchWebFallbackLyrics(fbTitle, fbArtist, LOVABLE_API_KEY);
         if (rawLyrics) {
           lyricsSource = "web_fallback";
           console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
@@ -542,7 +553,10 @@ ${rawLyrics}`;
     }));
 
     if (rows.length === 0) {
-      return jsonResponse({ error: "AI returned no lyric lines" }, 502);
+      return jsonResponse(
+        { error: "We couldn't find real lyrics for this track. Try picking a different YouTube result (e.g. an official audio/lyric video)." },
+        404,
+      );
     }
 
     const { error: linesError } = await supabase.from("lyric_lines").insert(rows);
