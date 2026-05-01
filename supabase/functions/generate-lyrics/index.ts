@@ -407,8 +407,30 @@ Deno.serve(async (req) => {
     try {
       console.log("Searching Genius for:", cleanedTitle);
       geniusHit = await searchGenius(cleanedTitle, GENIUS_TOKEN);
+
+      // Fallback 1: simplified query (drop feat./version/remix junk)
+      if (!geniusHit) {
+        const simplified = simplifyForSearch(cleanedTitle);
+        if (simplified && simplified !== cleanedTitle) {
+          console.log("Genius retry with simplified query:", simplified);
+          geniusHit = await searchGenius(simplified, GENIUS_TOKEN);
+        }
+      }
+
+      // Fallback 2: just the part before " - " (typically "Artist - Title")
+      if (!geniusHit) {
+        const split = splitTitleArtist(cleanedTitle);
+        if (split) {
+          const q = simplifyForSearch(`${split.artist} ${split.title}`);
+          console.log("Genius retry with artist+title split:", q);
+          geniusHit = await searchGenius(q, GENIUS_TOKEN);
+        }
+      }
+
+      // Fallback 3: append channel name
       if (!geniusHit && channel) {
-        geniusHit = await searchGenius(`${cleanedTitle} ${channel.replace(/\s*-?\s*Topic\s*$/i, "")}`, GENIUS_TOKEN);
+        const ch = channel.replace(/\s*-?\s*(?:Topic|VEVO)\s*$/i, "").trim();
+        geniusHit = await searchGenius(`${simplifyForSearch(cleanedTitle)} ${ch}`, GENIUS_TOKEN);
       }
     } catch (error) {
       console.error("Genius search failed for selected track:", error instanceof Error ? error.message : error);
