@@ -553,7 +553,10 @@ ${rawLyrics}`;
     }));
 
     if (rows.length === 0) {
-      return jsonResponse({ error: "AI returned no lyric lines" }, 502);
+      return jsonResponse(
+        { error: "We couldn't find real lyrics for this track. Try picking a different YouTube result (e.g. an official audio/lyric video)." },
+        404,
+      );
     }
 
     const { error: linesError } = await supabase.from("lyric_lines").insert(rows);
