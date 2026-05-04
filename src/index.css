@@ -98,4 +98,40 @@
     background-size: 200% 200%;
     animation: gradient-shift 8s ease infinite;
   }
+
+  @keyframes click-me-pulse {
+    0%, 100% { text-shadow: 0 0 6px hsl(var(--primary) / 0.8), 0 0 14px hsl(var(--primary) / 0.5); }
+    50% { text-shadow: 0 0 12px hsl(var(--primary)), 0 0 24px hsl(var(--primary) / 0.7); }
+  }
+  .click-me-pulse {
+    animation: click-me-pulse 1.4s ease-in-out infinite;
+  }
+  .click-me-badge {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 6px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: var(--shadow-neon-pink);
+    animation: click-me-pulse 1.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .click-me-badge::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: hsl(var(--primary));
+  }
 }

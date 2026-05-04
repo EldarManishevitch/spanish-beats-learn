@@ -126,7 +126,7 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
 
   const restart = () => { setSeed((s) => s + 1); setIdx(0); setAnswer(null); setScore(0); setDone(false); };
 
-  if (!questions.length) return <p className="text-muted-foreground text-center py-8">No chorus available for this song.</p>;
+  if (!questions.length) return <p className="text-muted-foreground text-center py-8">No quiz lines available for this song.</p>;
 
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
