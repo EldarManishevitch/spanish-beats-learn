@@ -32,7 +32,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
           <nav className="flex items-center gap-1 flex-wrap">
             <NavItem to="/" icon={Sparkles} label="Discover" />
             <NavItem to="/vocab" icon={BookOpen} label="Vocab" />
-            <NavItem to="/review" icon={RotateCcw} label="Review" />
+            <span id="tour-review"><NavItem to="/review" icon={RotateCcw} label="Review" /></span>
             <NavItem to="/conversations" icon={MessageCircle} label="Talk" />
             <NavItem to="/roleplay" icon={Mic} label="Roleplay" />
           </nav>

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Sparkles, Zap, Music2 } from "lucide-react";
 import { SongSearch } from "@/components/SongSearch";
+import { SiteTour } from "@/components/SiteTour";
 import { prefetchSong } from "@/lib/songCache";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
@@ -54,6 +55,7 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
+      <SiteTour />
       <section className="mb-10 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">
           <span className="neon-text">Ritmo</span> - the spanish song teacher
