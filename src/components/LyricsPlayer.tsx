@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TranslateWord } from "./TranslateWord";
 
 type Line = {
@@ -49,6 +49,9 @@ export const LyricsPlayer = ({
   songId: string;
 }) => {
   const playerRef = useRef<any>(null);
+  const [hintActive, setHintActive] = useState(true);
+
+  useEffect(() => { setHintActive(true); }, [songId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +79,7 @@ export const LyricsPlayer = ({
       </div>
       <div className="lg:col-span-2 glass rounded-2xl p-5 max-h-[480px] overflow-y-auto">
         <div className="space-y-4">
-          {lines.map((line) => {
+          {lines.map((line, lineIdx) => {
             const words = line.spanish_text.split(/\s+/);
             return (
               <div
@@ -86,7 +89,12 @@ export const LyricsPlayer = ({
                 <p className="text-base md:text-lg font-medium leading-relaxed">
                   {words.map((w, j) => (
                     <span key={j}>
-                      <TranslateWord word={w} songId={songId} />{" "}
+                      <TranslateWord
+                        word={w}
+                        songId={songId}
+                        showHint={hintActive && lineIdx === 0 && j === 0}
+                        onInteract={() => setHintActive(false)}
+                      />{" "}
                     </span>
                   ))}
                 </p>

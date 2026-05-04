@@ -17,6 +17,7 @@ const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] }) => {
   const { user } = useAuth();
   const { addXp, recompute, progress } = useProgress();
+  const [seed, setSeed] = useState(0);
   const [idx, setIdx] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
@@ -24,9 +25,13 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
   const [unlock, setUnlock] = useState<{ open: boolean; title: string; subtitle?: string }>({ open: false, title: "" });
 
   const questions = useMemo<Q[]>(() => {
-    const chorus = lines.filter((l) => l.is_chorus);
+    void seed;
     const allWords = Array.from(new Set(lines.flatMap((l) => l.spanish_text.split(/\s+/).map(cleanWord)).filter((w) => w.length > 3)));
-    return chorus.map((line) => {
+    const eligible = lines.filter((l) => l.spanish_text.split(/\s+/).some((w) => cleanWord(w).length > 3));
+    if (!eligible.length) return [];
+    const count = Math.min(eligible.length, Math.floor(Math.random() * 4) + 5); // 5-8
+    const picked = shuffle(eligible).slice(0, count);
+    return picked.map((line) => {
       const words = line.spanish_text.split(/\s+/);
       const candidates = words.map((w, i) => ({ w, i, c: cleanWord(w) })).filter((x) => x.c.length > 3);
       const pick = candidates[Math.floor(Math.random() * candidates.length)] ?? { w: words[0], i: 0, c: cleanWord(words[0]) };
@@ -39,7 +44,7 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
         missingIdx: pick.i,
       };
     });
-  }, [lines]);
+  }, [lines, seed]);
 
   const q = questions[idx];
 
@@ -119,9 +124,9 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
     }
   };
 
-  const restart = () => { setIdx(0); setAnswer(null); setScore(0); setDone(false); };
+  const restart = () => { setSeed((s) => s + 1); setIdx(0); setAnswer(null); setScore(0); setDone(false); };
 
-  if (!questions.length) return <p className="text-muted-foreground text-center py-8">No chorus available for this song.</p>;
+  if (!questions.length) return <p className="text-muted-foreground text-center py-8">No quiz lines available for this song.</p>;
 
   if (done) {
     const pct = Math.round((score / questions.length) * 100);

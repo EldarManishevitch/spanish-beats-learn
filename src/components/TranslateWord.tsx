@@ -18,7 +18,17 @@ type Result = {
 
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
 
-export const TranslateWord = ({ word, songId }: { word: string; songId?: string }) => {
+export const TranslateWord = ({
+  word,
+  songId,
+  showHint = false,
+  onInteract,
+}: {
+  word: string;
+  songId?: string;
+  showHint?: boolean;
+  onInteract?: () => void;
+}) => {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,10 +70,18 @@ export const TranslateWord = ({ word, songId }: { word: string; songId?: string 
 
   if (!cleaned) return <span>{word} </span>;
 
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (v) onInteract?.();
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <button className="hover:text-primary hover:underline decoration-dotted underline-offset-4 transition-colors cursor-pointer">
+        <button className={`relative hover:text-primary hover:underline decoration-dotted underline-offset-4 transition-colors cursor-pointer ${showHint ? "click-me-pulse text-primary" : ""}`}>
+          {showHint && (
+            <span className="click-me-badge" aria-hidden="true">Click me</span>
+          )}
           {word}
         </button>
       </PopoverTrigger>
