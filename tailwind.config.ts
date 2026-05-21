@@ -68,9 +68,11 @@ export default {
         "gradient-card": "var(--gradient-card)",
       },
       boxShadow: {
-        "neon-pink": "var(--shadow-neon-pink)",
-        "neon-yellow": "var(--shadow-neon-yellow)",
-        "card-deep": "var(--shadow-card)",
+        "neon-pink": "var(--shadow-soft)",
+        "neon-yellow": "var(--shadow-soft)",
+        "card-deep": "var(--shadow-soft-lg)",
+        "soft": "var(--shadow-soft)",
+        "soft-lg": "var(--shadow-soft-lg)",
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
