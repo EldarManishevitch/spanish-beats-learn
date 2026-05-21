@@ -12,7 +12,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => {
     const active = loc.pathname === to || (to !== "/" && loc.pathname.startsWith(to));
     return (
-      <Link to={to} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/15 text-primary neon-border-pink" : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"}`}>
+      <Link to={to} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/10 text-primary" : "text-secondary hover:text-foreground hover:bg-muted"}`}>
         <Icon className="h-4 w-4" />
         <span className="hidden md:inline">{label}</span>
       </Link>
@@ -21,13 +21,13 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-40 glass border-b">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border">
         <div className="container flex h-16 items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div className="h-9 w-9 rounded-xl bg-gradient-neon animate-gradient flex items-center justify-center shadow-neon-pink">
-              <Music className="h-5 w-5 text-background" />
+            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-soft">
+              <Music className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold neon-text hidden sm:inline">Ritmo</span>
+            <span className="text-xl font-bold text-foreground hidden sm:inline">Ritmo</span>
           </Link>
           <nav className="flex items-center gap-1 flex-wrap">
             <NavItem to="/" icon={Sparkles} label="Discover" />
