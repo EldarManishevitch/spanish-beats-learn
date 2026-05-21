@@ -73,20 +73,20 @@ export const LyricsPlayer = ({
   return (
     <div className="grid lg:grid-cols-5 gap-6">
       <div className="lg:col-span-3">
-        <div className="aspect-video rounded-2xl overflow-hidden glass shadow-card-deep">
+        <div className="aspect-video rounded-2xl overflow-hidden bg-white border border-border shadow-soft-lg">
           <div id="yt-player" className="w-full h-full" />
         </div>
       </div>
-      <div className="lg:col-span-2 glass rounded-2xl p-5 max-h-[480px] overflow-y-auto">
+      <div className="lg:col-span-2 bg-white border border-border shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
         <div className="space-y-4">
           {lines.map((line, lineIdx) => {
             const words = line.spanish_text.split(/\s+/);
             return (
               <div
                 key={line.id}
-                className={`rounded-xl p-3 ${line.is_chorus ? "border-l-2 border-accent/60 pl-4" : ""}`}
+                className={`rounded-xl p-3 ${line.is_chorus ? "border-l-4 border-primary pl-4 bg-primary/5" : ""}`}
               >
-                <p className="text-base md:text-lg font-medium leading-relaxed">
+                <p className="text-base md:text-lg font-medium leading-relaxed text-foreground">
                   {words.map((w, j) => (
                     <span key={j}>
                       <TranslateWord
@@ -99,7 +99,7 @@ export const LyricsPlayer = ({
                   ))}
                 </p>
                 {line.pronunciation && (
-                  <p className="text-sm text-accent/90 mt-1 italic tracking-wide">
+                  <p className="text-sm text-secondary/80 mt-1 italic tracking-wide">
                     {line.pronunciation}
                   </p>
                 )}

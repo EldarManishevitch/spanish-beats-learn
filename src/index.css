@@ -74,10 +74,11 @@
 
 @layer components {
   .glass {
-    background: hsl(var(--card));
+    background: hsl(0 0% 100%);
     backdrop-filter: none;
     border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-soft);
+    color: hsl(var(--foreground));
   }
   .neon-text {
     color: hsl(var(--primary));
@@ -85,8 +86,8 @@
     -webkit-background-clip: initial;
     background-clip: initial;
   }
-  .neon-border-pink { box-shadow: var(--shadow-soft); }
-  .neon-border-yellow { box-shadow: var(--shadow-soft); }
+  .neon-border-pink { box-shadow: var(--shadow-soft); border-color: hsl(var(--border)) !important; }
+  .neon-border-yellow { box-shadow: var(--shadow-soft); border-color: hsl(var(--border)) !important; }
 }
 
 @layer utilities {

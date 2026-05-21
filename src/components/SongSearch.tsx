@@ -53,10 +53,10 @@ export const SongSearch = () => {
   };
 
   return (
-    <Card id="tour-search" className="glass p-5 mb-8 border-primary/30">
+    <Card id="tour-search" className="bg-white border border-secondary/15 shadow-soft p-5 mb-8 rounded-2xl">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-bold">Add a New Song</h2>
+        <h2 className="text-xl font-bold text-foreground">Add a New Song</h2>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
         Search YouTube for a Spanish track. We'll auto-generate lyrics, translations, and chorus markings.
@@ -66,9 +66,9 @@ export const SongSearch = () => {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="e.g. Shakira Hips Don't Lie"
-          className="bg-background/50"
+          className="bg-white border-secondary/20 text-foreground placeholder:text-muted-foreground"
         />
-        <Button type="submit" disabled={searching || q.trim().length < 2} className="shadow-neon-pink">
+        <Button type="submit" disabled={searching || q.trim().length < 2} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft">
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </form>
