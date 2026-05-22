@@ -17,7 +17,7 @@ export const UnlockCelebration = ({ open, title, subtitle, onClose }: Props) => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm animate-fade-in" onClick={() => { setShow(false); onClose(); }}>
-      <div className="relative px-10 py-12 rounded-3xl glass border-2 border-primary shadow-neon-pink text-center max-w-md mx-4 animate-scale-in">
+      <div className="relative px-10 py-12 rounded-3xl glass border-2 border-secondary/15 shadow-neon-pink text-center max-w-md mx-4 animate-scale-in">
         <div className="absolute inset-0 rounded-3xl bg-gradient-neon opacity-10 animate-gradient pointer-events-none" />
         {[...Array(12)].map((_, i) => (
           <Sparkles

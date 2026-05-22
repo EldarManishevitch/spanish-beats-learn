@@ -64,7 +64,7 @@ const ReviewRoom = () => {
       </header>
 
       <Tabs defaultValue="cards">
-        <TabsList className="glass mb-6">
+        <TabsList className="glass border-2 border-secondary/15 mb-6">
           <TabsTrigger value="cards" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <BookOpen className="h-4 w-4 mr-2" /> Flashcards
           </TabsTrigger>
