@@ -87,7 +87,7 @@ const Conversations = () => {
 
       <div className="grid gap-4">
         {phrases?.map((p, i) => (
-          <Card key={i} className="glass p-5 border-l-4 border-primary/60">
+          <Card key={i} className="glass p-5 border-2 border-secondary/15">
             <p className="text-xs uppercase tracking-widest text-accent mb-2">{p.situation}</p>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 space-y-1">

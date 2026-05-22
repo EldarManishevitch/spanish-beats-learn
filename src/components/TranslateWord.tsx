@@ -85,7 +85,7 @@ export const TranslateWord = ({
           {word}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 glass border-primary/40" align="center">
+      <PopoverContent className="w-72 glass" align="center">
         {loading || !result ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />

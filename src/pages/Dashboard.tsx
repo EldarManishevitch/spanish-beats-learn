@@ -64,7 +64,7 @@ const Dashboard = () => {
       </section>
 
       {slang && (
-        <Card className="glass mb-8 p-6 border-accent/40 shadow-neon-yellow animate-fade-in">
+        <Card className="glass mb-8 p-6 shadow-neon-yellow animate-fade-in">
           <div className="flex items-start gap-4">
             <div className="h-12 w-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
               <Sparkles className="h-6 w-6 text-accent" />
@@ -148,7 +148,7 @@ const Dashboard = () => {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {songs.map((s) => (
             <Link key={s.id} to={`/song/${s.id}`} className="group" onMouseEnter={() => prefetchSong(s.id)} onFocus={() => prefetchSong(s.id)} onTouchStart={() => prefetchSong(s.id)}>
-              <Card className="glass overflow-hidden border-border/50 hover:border-primary/60 hover:shadow-neon-pink transition-all duration-300 hover:-translate-y-1">
+              <Card className="glass overflow-hidden hover:shadow-neon-pink transition-all duration-300 hover:-translate-y-1">
                 <div className="relative aspect-video overflow-hidden">
                   {s.album_art_url && <img src={s.album_art_url} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />}
                   <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />

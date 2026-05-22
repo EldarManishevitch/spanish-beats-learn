@@ -6,7 +6,7 @@ export const CefrBadge = () => {
   if (!progress) return null;
   const tier = progress.cefr_level || "A1";
   return (
-    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg glass border border-primary/30 shadow-neon-pink/30">
+    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg glass shadow-neon-pink/30">
       <Sparkles className="h-3.5 w-3.5 text-primary" />
       <span className="text-xs font-bold text-primary">{tier}</span>
       <span className="text-xs text-muted-foreground hidden md:inline">· {TIER_NAMES[tier] ?? ""}</span>

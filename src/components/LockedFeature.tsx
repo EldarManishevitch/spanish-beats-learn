@@ -12,7 +12,7 @@ type Props = {
 export const LockedFeature = ({ title, description, current, goal }: Props) => {
   const pct = Math.min(100, Math.round((current / goal) * 100));
   return (
-    <Card className="glass p-10 text-center max-w-xl mx-auto border-accent/40">
+    <Card className="glass p-10 text-center max-w-xl mx-auto">
       <div className="h-16 w-16 mx-auto rounded-2xl bg-accent/10 flex items-center justify-center mb-4 border border-accent/40">
         <Lock className="h-7 w-7 text-accent" />
       </div>

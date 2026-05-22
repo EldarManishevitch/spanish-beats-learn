@@ -24,9 +24,7 @@ export const Flashcard = ({ word, pronunciation, translation, failCount, onMaste
   return (
     <Card
       onClick={() => setFlipped((f) => !f)}
-      className={`glass p-6 min-h-[180px] cursor-pointer transition-all hover:-translate-y-1 ${
-        flipped ? "border-accent shadow-neon-yellow" : "border-primary/60 shadow-neon-pink"
-      }`}
+      className="glass p-6 min-h-[180px] cursor-pointer transition-all hover:-translate-y-1"
     >
       {!flipped ? (
         <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
