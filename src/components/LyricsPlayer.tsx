@@ -73,11 +73,11 @@ export const LyricsPlayer = ({
   return (
     <div className="grid lg:grid-cols-5 gap-6">
       <div className="lg:col-span-3">
-        <div className="aspect-video rounded-2xl overflow-hidden bg-white border-2 border-secondary/15 shadow-soft-lg">
+        <div className="aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
           <div id="yt-player" className="w-full h-full" />
         </div>
       </div>
-      <div className="lg:col-span-2 bg-white border-2 border-secondary/15 shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
+      <div className="lg:col-span-2 bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
         <div className="space-y-4">
           {lines.map((line, lineIdx) => {
             const words = line.spanish_text.split(/\s+/);

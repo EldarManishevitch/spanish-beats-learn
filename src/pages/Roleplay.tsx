@@ -123,7 +123,7 @@ const Roleplay = () => {
           {scenario.dialogue_steps.slice(0, turn + 1).map((step, i) => {
             const showHint = (revealedTwice[i] ?? 0) > 0;
             return (
-              <Card key={i} className="glass p-5 border-2 border-secondary/15 max-w-2xl">
+              <Card key={i} className="glass p-5 max-w-2xl">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <span className="text-xs uppercase tracking-widest text-accent">{scenario.character_name}</span>
                   <Button size="icon" variant="ghost" onClick={() => speak(step.spanish_text)}>

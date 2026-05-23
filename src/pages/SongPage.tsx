@@ -95,7 +95,7 @@ const SongPage = () => {
       </header>
 
       <Tabs defaultValue="lyrics" className="space-y-6" onValueChange={(v) => v === "vocab" && loadVocab()}>
-        <TabsList className="glass border-2 border-secondary/15">
+        <TabsList className="glass">
           <TabsTrigger value="lyrics" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Music className="h-4 w-4 mr-2" /> Lyrics
           </TabsTrigger>
@@ -122,7 +122,7 @@ const SongPage = () => {
               {vocab.map((v) => {
                 const flagged = flaggedSet.has(v.word);
                 return (
-                  <Card key={v.word} className={`glass p-4 ${flagged ? "border-destructive pulse-flag" : ""}`}>
+                  <Card key={v.word} className={`glass p-4 ${flagged ? "ring-2 ring-destructive/50 pulse-flag" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="font-bold capitalize text-lg">{v.word}</h4>
@@ -137,7 +137,7 @@ const SongPage = () => {
                 );
               })}
               {flags.filter((f) => !vocab.find((v) => v.word === f.word)).map((f) => (
-                <Card key={f.word} className="glass p-4 border-destructive pulse-flag">
+                <Card key={f.word} className="glass p-4 ring-2 ring-destructive/50 pulse-flag">
                   <div className="flex items-start justify-between">
                     <h4 className="font-bold capitalize text-lg">{f.word}</h4>
                     <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />needs practice</Badge>
