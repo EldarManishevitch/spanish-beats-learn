@@ -53,7 +53,7 @@ export const SongSearch = () => {
   };
 
   return (
-    <Card id="tour-search" className="bg-white border-[3px] border-secondary/25 shadow-soft p-5 mb-8 rounded-2xl">
+    <Card id="tour-search" className="glass p-5 mb-8 rounded-2xl">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-bold text-foreground">Add a New Song</h2>
