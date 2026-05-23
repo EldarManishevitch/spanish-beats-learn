@@ -95,7 +95,7 @@ const SongPage = () => {
       </header>
 
       <Tabs defaultValue="lyrics" className="space-y-6" onValueChange={(v) => v === "vocab" && loadVocab()}>
-        <TabsList className="glass border-2 border-secondary/15">
+        <TabsList className="glass">
           <TabsTrigger value="lyrics" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Music className="h-4 w-4 mr-2" /> Lyrics
           </TabsTrigger>
