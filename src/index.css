@@ -74,11 +74,11 @@
 
 @layer components {
   .glass {
-    background: hsl(0 0% 100%);
+    background: #ffffff;
     backdrop-filter: none;
-    border-width: 2px;
+    border-width: 3px;
     border-style: solid;
-    border-color: hsl(var(--secondary) / 0.15);
+    border-color: hsl(var(--secondary) / 0.25);
     box-shadow: var(--shadow-soft);
     color: hsl(var(--foreground));
   }
@@ -88,8 +88,8 @@
     -webkit-background-clip: initial;
     background-clip: initial;
   }
-  .neon-border-pink { box-shadow: var(--shadow-soft); border-width: 2px !important; border-style: solid !important; border-color: hsl(var(--secondary) / 0.15) !important; }
-  .neon-border-yellow { box-shadow: var(--shadow-soft); border-width: 2px !important; border-style: solid !important; border-color: hsl(var(--secondary) / 0.15) !important; }
+  .neon-border-pink { box-shadow: var(--shadow-soft); border-width: 3px !important; border-style: solid !important; border-color: hsl(var(--secondary) / 0.25) !important; }
+  .neon-border-yellow { box-shadow: var(--shadow-soft); border-width: 3px !important; border-style: solid !important; border-color: hsl(var(--secondary) / 0.25) !important; }
 }
 
 @layer utilities {
