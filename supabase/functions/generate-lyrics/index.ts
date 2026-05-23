@@ -369,22 +369,35 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
 
   try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const GENIUS_TOKEN = Deno.env.get("GENIUS_ACCESS_TOKEN");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!SUPABASE_URL || !SERVICE_ROLE || !GENIUS_TOKEN || !LOVABLE_API_KEY || !SUPABASE_ANON_KEY) {
+      console.error("Missing required server config");
+      return jsonResponse({ error: "Server configuration error" }, 500);
+    }
+
+    // Require authenticated caller — this endpoint burns paid API credits
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claims, error: claimsErr } = await authClient.auth.getClaims(token);
+    if (claimsErr || !claims?.claims?.sub) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
     const body = await req.json();
     const { youtube_id, title, channel, thumbnail } = body ?? {};
 
     if (!youtube_id || !title) {
       return jsonResponse({ error: "youtube_id and title are required" }, 400);
     }
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const GENIUS_TOKEN = Deno.env.get("GENIUS_ACCESS_TOKEN");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!SUPABASE_URL) return jsonResponse({ error: "Server configuration error: Missing SUPABASE_URL." }, 500);
-    if (!SERVICE_ROLE) return jsonResponse({ error: "Server configuration error: Missing SUPABASE_SERVICE_ROLE_KEY." }, 500);
-    if (!GENIUS_TOKEN) return jsonResponse({ error: "Server configuration error: Missing GENIUS_ACCESS_TOKEN." }, 500);
-    if (!LOVABLE_API_KEY) return jsonResponse({ error: "Server configuration error: Missing LOVABLE_API_KEY." }, 500);
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -617,6 +630,6 @@ ${rawLyrics}`;
     });
   } catch (error) {
     console.error("Unexpected generate-lyrics error:", error instanceof Error ? error.message : error);
-    return jsonResponse({ error: "SERVICE_FAILED", message: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 });
