@@ -137,7 +137,7 @@ const SongPage = () => {
                 );
               })}
               {flags.filter((f) => !vocab.find((v) => v.word === f.word)).map((f) => (
-                <Card key={f.word} className="glass p-4 border-destructive pulse-flag">
+                <Card key={f.word} className="glass p-4 ring-2 ring-destructive/50 pulse-flag">
                   <div className="flex items-start justify-between">
                     <h4 className="font-bold capitalize text-lg">{f.word}</h4>
                     <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />needs practice</Badge>
