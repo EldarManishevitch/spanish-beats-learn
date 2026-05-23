@@ -31,7 +31,12 @@ Deno.serve(async (req) => {
     const { scenario_hint } = await req.json().catch(() => ({}));
 
     const { data: profile } = await supabase
-      .from("profiles").select("cefr_level").eq("id", user.id).maybeSingle();
+      .from("profiles").select("cefr_level, unlocked_conversations").eq("id", user.id).maybeSingle();
+
+    // Server-side feature gate
+    if (!profile?.unlocked_conversations) {
+      return new Response(JSON.stringify({ error: "Feature locked" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const cefr = profile?.cefr_level ?? "A1";
 
     const { data: mastered } = await supabase
@@ -43,7 +48,10 @@ Deno.serve(async (req) => {
     const masteredWords = (mastered ?? []).map((m) => m.word).join(", ");
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    if (!apiKey) {
+      console.error("generate-roleplay: LOVABLE_API_KEY missing");
+      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -104,7 +112,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify(payload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error(e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "error" }), { status: 500, headers: corsHeaders });
+    console.error("generate-roleplay error", e);
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: corsHeaders });
   }
 });

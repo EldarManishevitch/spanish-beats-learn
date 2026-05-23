@@ -37,7 +37,12 @@ Deno.serve(async (req) => {
     }
 
     const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
-    if (!YOUTUBE_API_KEY) throw new Error("YOUTUBE_API_KEY not configured");
+    if (!YOUTUBE_API_KEY) {
+      console.error("youtube-search: YOUTUBE_API_KEY not configured");
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Bias toward audio-only uploads to avoid music-video desync
     const query = encodeURIComponent(`${q} audio`);
@@ -64,7 +69,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("youtube-search error", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
