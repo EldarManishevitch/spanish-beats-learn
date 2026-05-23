@@ -75,24 +75,24 @@ const Dashboard = () => {
               <div className="space-y-1.5 mb-4 text-sm">
                 {slang.literal_meaning && (
                   <p>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Literal</span>
-                    <span className="text-foreground/80">{slang.literal_meaning}</span>
+                    <span className="text-xs uppercase tracking-wider text-foreground font-semibold mr-2">Literal</span>
+                    <span className="text-foreground">{slang.literal_meaning}</span>
                   </p>
                 )}
                 <p>
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Meaning</span>
-                  <span className="text-foreground/90 font-medium">{slang.contextual_meaning}</span>
+                  <span className="text-xs uppercase tracking-wider text-foreground font-semibold mr-2">Meaning</span>
+                  <span className="text-foreground font-medium">{slang.contextual_meaning}</span>
                 </p>
                 {slang.english_equivalent && (
                   <p>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">English slang</span>
-                    <span className="text-accent">{slang.english_equivalent}</span>
+                    <span className="text-xs uppercase tracking-wider text-foreground font-semibold mr-2">English slang</span>
+                    <span className="text-foreground">{slang.english_equivalent}</span>
                   </p>
                 )}
                 {slang.example_usage && (
                   <p>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Example</span>
-                    <span className="text-foreground/80 italic">"{slang.example_usage}"</span>
+                    <span className="text-xs uppercase tracking-wider text-foreground font-semibold mr-2">Example</span>
+                    <span className="text-foreground italic">"{slang.example_usage}"</span>
                   </p>
                 )}
               </div>
