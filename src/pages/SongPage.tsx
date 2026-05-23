@@ -122,7 +122,7 @@ const SongPage = () => {
               {vocab.map((v) => {
                 const flagged = flaggedSet.has(v.word);
                 return (
-                  <Card key={v.word} className={`glass p-4 ${flagged ? "border-destructive pulse-flag" : ""}`}>
+                  <Card key={v.word} className={`glass p-4 ${flagged ? "ring-2 ring-destructive/50 pulse-flag" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="font-bold capitalize text-lg">{v.word}</h4>
