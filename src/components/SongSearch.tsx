@@ -53,7 +53,7 @@ export const SongSearch = () => {
   };
 
   return (
-    <Card id="tour-search" className="bg-white border-2 border-secondary/15 shadow-soft p-5 mb-8 rounded-2xl">
+    <Card id="tour-search" className="bg-white border-[3px] border-secondary/25 shadow-soft p-5 mb-8 rounded-2xl">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-bold text-foreground">Add a New Song</h2>
@@ -61,14 +61,14 @@ export const SongSearch = () => {
       <p className="text-sm text-muted-foreground mb-4">
         Search YouTube for a Spanish track. We'll auto-generate lyrics, translations, and chorus markings.
       </p>
-      <form onSubmit={search} className="flex gap-2">
+      <form onSubmit={search} className="flex gap-2 items-stretch">
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="e.g. Shakira Hips Don't Lie"
-          className="bg-white border-2 border-secondary/15 text-foreground placeholder:text-muted-foreground"
+          className="bg-white border-[3px] border-secondary/25 text-foreground placeholder:text-muted-foreground h-11"
         />
-        <Button type="submit" disabled={searching || q.trim().length < 2} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft">
+        <Button type="submit" disabled={searching || q.trim().length < 2} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft h-11 w-11 p-0 shrink-0">
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </form>
