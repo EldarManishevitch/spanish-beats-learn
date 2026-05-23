@@ -88,7 +88,8 @@ Deno.serve(async (req) => {
     // 3. AI fallback
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
+      console.error("translate-word: LOVABLE_API_KEY missing");
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
