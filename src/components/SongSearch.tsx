@@ -79,7 +79,7 @@ export const SongSearch = () => {
             <div key={r.youtube_id} className="flex gap-3 items-center p-2 rounded-lg hover:bg-primary/5 transition-colors">
               <img src={r.thumbnail} alt="" className="h-14 w-20 object-cover rounded-md shrink-0" loading="lazy" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" dangerouslySetInnerHTML={{ __html: r.title }} />
+                <p className="text-sm font-medium truncate">{r.title}</p>
                 <p className="text-xs text-muted-foreground truncate">{r.channel}</p>
               </div>
               <Button
