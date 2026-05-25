@@ -167,7 +167,8 @@ const TOOL = {
 
 function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: number) {
   return {
-    model: "google/gemini-2.5-flash",
+    // flash-lite is significantly faster than flash for this structured tool-call workload
+    model: "google/gemini-2.5-flash-lite",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
