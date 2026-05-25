@@ -167,7 +167,8 @@ const TOOL = {
 
 function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: number) {
   return {
-    model: "google/gemini-2.5-flash",
+    // flash-lite is significantly faster than flash for this structured tool-call workload
+    model: "google/gemini-2.5-flash-lite",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -480,16 +481,22 @@ Deno.serve(async (req) => {
     }
 
     try {
-      for (const attempt of lrclibAttempts) {
-        if (!attempt.title || !attempt.artist) continue;
-        console.log("Trying lrclib:", attempt.title, "—", attempt.artist);
-        rawLyrics = await fetchLrclibLyrics(attempt.title, attempt.artist);
-        if (rawLyrics && rawLyrics.length >= 50) {
-          lyricsSource = "lrclib";
-          break;
-        }
-        rawLyrics = null;
+      // Fire all lrclib attempts in parallel — first one with valid lyrics wins
+      const lrclibResults = await Promise.all(
+        lrclibAttempts
+          .filter((a) => a.title && a.artist)
+          .map(async (attempt) => {
+            console.log("Trying lrclib:", attempt.title, "—", attempt.artist);
+            const text = await fetchLrclibLyrics(attempt.title, attempt.artist);
+            return text && text.length >= 50 ? text : null;
+          }),
+      );
+      const firstHit = lrclibResults.find((t) => !!t) ?? null;
+      if (firstHit) {
+        rawLyrics = firstHit;
+        lyricsSource = "lrclib";
       }
+
 
       if (!rawLyrics || rawLyrics.length < 50) {
         rawLyrics = await fetchGeniusLyrics(geniusHit.url);
