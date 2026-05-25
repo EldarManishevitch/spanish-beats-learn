@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { prefetchSong, prefetchByYoutubeId, registerGeneration } from "@/lib/songCache";
 
 type Result = { youtube_id: string; title: string; channel: string; thumbnail: string };
 
@@ -38,12 +39,38 @@ export const SongSearch = () => {
   const pick = async (r: Result) => {
     setGeneratingId(r.youtube_id);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-lyrics", {
-        body: { youtube_id: r.youtube_id, title: r.title, channel: r.channel, thumbnail: r.thumbnail },
+      // Fast path: song already in DB → navigate immediately.
+      const { data: existing } = await supabase
+        .from("songs")
+        .select("id")
+        .eq("youtube_id", r.youtube_id)
+        .maybeSingle();
+      if (existing?.id) {
+        prefetchSong(existing.id);
+        navigate(`/song/${existing.id}`);
+        return;
+      }
+
+      // Optimistic path: navigate to pending page, generate in background.
+      const [titleGuess, artistGuess] = r.title.includes(" - ")
+        ? r.title.split(" - ").map((s) => s.trim())
+        : [r.title, r.channel];
+      prefetchByYoutubeId(r.youtube_id, {
+        title: titleGuess || r.title,
+        artist: artistGuess || r.channel,
+        thumbnail: r.thumbnail,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      navigate(`/song/${data.song_id}`);
+      const generation = supabase.functions
+        .invoke("generate-lyrics", {
+          body: { youtube_id: r.youtube_id, title: r.title, channel: r.channel, thumbnail: r.thumbnail },
+        })
+        .then(({ data, error }) => {
+          if (error) return { error: error.message };
+          if (data?.error) return { error: data.error };
+          return { song_id: data.song_id, lines: data.lines };
+        });
+      registerGeneration(r.youtube_id, generation);
+      navigate(`/song/pending/${r.youtube_id}`);
     } catch (err) {
       console.error(err);
       toast({ title: "Generation failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
