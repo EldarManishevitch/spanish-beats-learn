@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SongPage from "./pages/SongPage";
+import SongPending from "./pages/SongPending";
 import Vocab from "./pages/Vocab";
 import ReviewRoom from "./pages/ReviewRoom";
 import Conversations from "./pages/Conversations";
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/song/pending/:youtubeId" element={<ProtectedRoute><SongPending /></ProtectedRoute>} />
             <Route path="/song/:id" element={<ProtectedRoute><SongPage /></ProtectedRoute>} />
             <Route path="/vocab" element={<ProtectedRoute><Vocab /></ProtectedRoute>} />
             <Route path="/review" element={<ProtectedRoute><ReviewRoom /></ProtectedRoute>} />

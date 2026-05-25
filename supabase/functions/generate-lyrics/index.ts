@@ -411,7 +411,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Database lookup failed" }, 500);
     }
     if (existing) {
-      return jsonResponse({ song_id: existing.id, existed: true });
+      const { data: cachedLines } = await supabase
+        .from("lyric_lines")
+        .select("id, line_index, spanish_text, pronunciation, english_translation, is_chorus")
+        .eq("song_id", existing.id)
+        .order("line_index");
+      return jsonResponse({ song_id: existing.id, existed: true, lines: cachedLines ?? [] });
     }
 
     const cleanedTitle = cleanYoutubeTitle(title);
