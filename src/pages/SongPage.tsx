@@ -19,20 +19,20 @@ type Flag = { word: string; miss_count: number };
 
 const SongSkeleton = () => (
   <AppLayout>
-    <div className="mb-4"><Skeleton className="h-5 w-16" /></div>
+    <div className="mb-4"><Skeleton className="h-5 w-16 bg-primary/10" /></div>
     <header className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-6">
-      <Skeleton className="h-24 w-24 rounded-xl" />
+      <Skeleton className="h-24 w-24 rounded-xl bg-primary/10" />
       <div className="space-y-2">
-        <Skeleton className="h-5 w-20" />
-        <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-5 w-20 bg-primary/10" />
+        <Skeleton className="h-9 w-64 bg-primary/10" />
+        <Skeleton className="h-5 w-40 bg-primary/10" />
       </div>
     </header>
-    <Skeleton className="h-10 w-72 mb-6" />
-    <Skeleton className="aspect-video w-full rounded-xl mb-4" />
+    <Skeleton className="h-10 w-72 mb-6 bg-primary/10" />
+    <Skeleton className="aspect-video w-full rounded-xl mb-4 bg-primary/10" />
     <div className="space-y-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-16 w-full rounded-lg" />
+        <Skeleton key={i} className="h-16 w-full rounded-lg bg-primary/10" />
       ))}
     </div>
   </AppLayout>
