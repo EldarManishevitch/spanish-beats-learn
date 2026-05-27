@@ -481,26 +481,23 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Fire all lrclib attempts in parallel — first one with valid lyrics wins
-      const lrclibResults = await Promise.all(
-        lrclibAttempts
-          .filter((a) => a.title && a.artist)
-          .map(async (attempt) => {
-            console.log("Trying lrclib:", attempt.title, "—", attempt.artist);
-            const text = await fetchLrclibLyrics(attempt.title, attempt.artist);
-            return text && text.length >= 50 ? text : null;
-          }),
+      // Fire lrclib attempts AND Genius scrape in parallel — first valid wins.
+      const lrclibPromises = lrclibAttempts
+        .filter((a) => a.title && a.artist)
+        .map((attempt) =>
+          fetchLrclibLyrics(attempt.title, attempt.artist).then((t) =>
+            t && t.length >= 50 ? { src: "lrclib", text: t } : null,
+          ),
+        );
+      const geniusPromise = fetchGeniusLyrics(geniusHit.url).then((t) =>
+        t && t.length >= 50 ? { src: "genius", text: t } : null,
       );
-      const firstHit = lrclibResults.find((t) => !!t) ?? null;
+
+      const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
+      const firstHit = parallelResults.find((r) => !!r) ?? null;
       if (firstHit) {
-        rawLyrics = firstHit;
-        lyricsSource = "lrclib";
-      }
-
-
-      if (!rawLyrics || rawLyrics.length < 50) {
-        rawLyrics = await fetchGeniusLyrics(geniusHit.url);
-        if (rawLyrics) lyricsSource = "genius";
+        rawLyrics = firstHit.text;
+        lyricsSource = firstHit.src;
       }
 
       if (!rawLyrics || rawLyrics.length < 50) {
@@ -639,6 +636,14 @@ ${rawLyrics}`;
       song_id: song.id,
       existed: false,
       lines_count: rows.length,
+      lines: rows.map((r, i) => ({
+        id: `tmp-${i}`,
+        line_index: r.line_index,
+        spanish_text: r.spanish_text,
+        pronunciation: r.pronunciation,
+        english_translation: r.english_translation,
+        is_chorus: r.is_chorus,
+      })),
       lyrics_source: lyricsSource,
       genius_url: geniusHit.url,
     });
