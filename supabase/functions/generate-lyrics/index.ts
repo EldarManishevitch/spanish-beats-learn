@@ -531,8 +531,8 @@ Deno.serve(async (req) => {
 
     let parsed: any;
     try {
-      const userPrompt = `Song title: "${geniusHit.title}"
-Artist: ${geniusHit.artist}
+      const userPrompt = `Song title: "${cleanTitle}"
+Artist: ${cleanArtist}
 
 Original Spanish lyrics:
 
