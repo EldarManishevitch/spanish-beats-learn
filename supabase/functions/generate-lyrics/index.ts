@@ -647,7 +647,7 @@ ${rawLyrics}`;
         is_chorus: r.is_chorus,
       })),
       lyrics_source: lyricsSource,
-      genius_url: geniusHit.url,
+      genius_url: geniusHit?.url ?? null,
     });
   } catch (error) {
     console.error("Unexpected generate-lyrics error:", error instanceof Error ? error.message : error);
