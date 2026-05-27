@@ -459,15 +459,15 @@ Deno.serve(async (req) => {
     }
 
     if (!geniusHit) {
-      return jsonResponse({ error: "Could not find this song on Genius. Try a more specific search." }, 404);
+      console.warn("Genius lookup failed — continuing with YouTube metadata only");
     }
 
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
 
-    const cleanArtist = sanitizeArtist(geniusHit.artist);
-    const cleanTitle = sanitizeTitle(geniusHit.title);
     const ytSplit = splitTitleArtist(cleanedTitle);
+    const cleanArtist = geniusHit ? sanitizeArtist(geniusHit.artist) : (ytSplit?.artist ?? channel ?? "");
+    const cleanTitle = geniusHit ? sanitizeTitle(geniusHit.title) : (ytSplit?.title ?? cleanedTitle);
 
     const lrclibAttempts: Array<{ title: string; artist: string }> = [
       { title: cleanTitle, artist: cleanArtist },
@@ -489,9 +489,11 @@ Deno.serve(async (req) => {
             t && t.length >= 50 ? { src: "lrclib", text: t } : null,
           ),
         );
-      const geniusPromise = fetchGeniusLyrics(geniusHit.url).then((t) =>
-        t && t.length >= 50 ? { src: "genius", text: t } : null,
-      );
+      const geniusPromise = geniusHit
+        ? fetchGeniusLyrics(geniusHit.url).then((t) =>
+            t && t.length >= 50 ? { src: "genius", text: t } : null,
+          )
+        : Promise.resolve(null);
 
       const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
       const firstHit = parallelResults.find((r) => !!r) ?? null;
@@ -518,7 +520,7 @@ Deno.serve(async (req) => {
     }
 
     if (!rawLyrics || rawLyrics.length < 50) {
-      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", geniusHit.title, geniusHit.artist);
+      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", cleanTitle, cleanArtist);
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
 
@@ -529,8 +531,8 @@ Deno.serve(async (req) => {
 
     let parsed: any;
     try {
-      const userPrompt = `Song title: "${geniusHit.title}"
-Artist: ${geniusHit.artist}
+      const userPrompt = `Song title: "${cleanTitle}"
+Artist: ${cleanArtist}
 
 Original Spanish lyrics:
 
@@ -592,8 +594,8 @@ ${rawLyrics}`;
     const { data: song, error: songError } = await supabase
       .from("songs")
       .insert({
-        title: parsed.title || geniusHit.title,
-        artist: parsed.artist || geniusHit.artist,
+        title: parsed.title || cleanTitle,
+        artist: parsed.artist || cleanArtist,
         genre: parsed.genre || "pop latino",
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
@@ -645,7 +647,7 @@ ${rawLyrics}`;
         is_chorus: r.is_chorus,
       })),
       lyrics_source: lyricsSource,
-      genius_url: geniusHit.url,
+      genius_url: geniusHit?.url ?? null,
     });
   } catch (error) {
     console.error("Unexpected generate-lyrics error:", error instanceof Error ? error.message : error);
