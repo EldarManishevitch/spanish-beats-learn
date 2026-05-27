@@ -459,15 +459,15 @@ Deno.serve(async (req) => {
     }
 
     if (!geniusHit) {
-      return jsonResponse({ error: "Could not find this song on Genius. Try a more specific search." }, 404);
+      console.warn("Genius lookup failed — continuing with YouTube metadata only");
     }
 
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
 
-    const cleanArtist = sanitizeArtist(geniusHit.artist);
-    const cleanTitle = sanitizeTitle(geniusHit.title);
     const ytSplit = splitTitleArtist(cleanedTitle);
+    const cleanArtist = geniusHit ? sanitizeArtist(geniusHit.artist) : (ytSplit?.artist ?? channel ?? "");
+    const cleanTitle = geniusHit ? sanitizeTitle(geniusHit.title) : (ytSplit?.title ?? cleanedTitle);
 
     const lrclibAttempts: Array<{ title: string; artist: string }> = [
       { title: cleanTitle, artist: cleanArtist },
