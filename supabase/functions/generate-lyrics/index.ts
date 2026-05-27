@@ -636,6 +636,14 @@ ${rawLyrics}`;
       song_id: song.id,
       existed: false,
       lines_count: rows.length,
+      lines: rows.map((r, i) => ({
+        id: `tmp-${i}`,
+        line_index: r.line_index,
+        spanish_text: r.spanish_text,
+        pronunciation: r.pronunciation,
+        english_translation: r.english_translation,
+        is_chorus: r.is_chorus,
+      })),
       lyrics_source: lyricsSource,
       genius_url: geniusHit.url,
     });
