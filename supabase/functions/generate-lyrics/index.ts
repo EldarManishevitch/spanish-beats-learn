@@ -489,9 +489,11 @@ Deno.serve(async (req) => {
             t && t.length >= 50 ? { src: "lrclib", text: t } : null,
           ),
         );
-      const geniusPromise = fetchGeniusLyrics(geniusHit.url).then((t) =>
-        t && t.length >= 50 ? { src: "genius", text: t } : null,
-      );
+      const geniusPromise = geniusHit
+        ? fetchGeniusLyrics(geniusHit.url).then((t) =>
+            t && t.length >= 50 ? { src: "genius", text: t } : null,
+          )
+        : Promise.resolve(null);
 
       const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
       const firstHit = parallelResults.find((r) => !!r) ?? null;
