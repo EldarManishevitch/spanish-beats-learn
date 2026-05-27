@@ -520,7 +520,7 @@ Deno.serve(async (req) => {
     }
 
     if (!rawLyrics || rawLyrics.length < 50) {
-      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", geniusHit.title, geniusHit.artist);
+      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", cleanTitle, cleanArtist);
       return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
     }
 
