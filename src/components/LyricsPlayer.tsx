@@ -120,7 +120,7 @@ export const LyricsPlayer = ({
             return (
               <div
                 key={line.id}
-                className={`rounded-xl p-3 ${line.is_chorus ? "border-l-4 border-primary pl-4 bg-primary/5" : ""}`}
+                className="rounded-xl p-3"
               >
                 <p className="text-base md:text-lg font-medium leading-relaxed text-foreground">
                   {words.map((w, j) => (
