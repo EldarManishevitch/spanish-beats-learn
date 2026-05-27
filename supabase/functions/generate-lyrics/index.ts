@@ -594,8 +594,8 @@ ${rawLyrics}`;
     const { data: song, error: songError } = await supabase
       .from("songs")
       .insert({
-        title: parsed.title || geniusHit.title,
-        artist: parsed.artist || geniusHit.artist,
+        title: parsed.title || cleanTitle,
+        artist: parsed.artist || cleanArtist,
         genre: parsed.genre || "pop latino",
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
