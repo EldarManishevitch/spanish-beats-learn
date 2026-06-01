@@ -38,7 +38,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
           </nav>
           <div className="flex items-center gap-2 shrink-0">
             <CefrBadge />
-            <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out"><LogOut className="h-4 w-4" /></Button>
           </div>
         </div>
       </header>

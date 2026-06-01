@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -52,16 +53,16 @@ const Vocab = () => {
             <Card key={v.id} className="glass p-4 hover:shadow-neon-pink transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
-                  <h4 className="font-bold text-lg capitalize">{v.word}</h4>
+                  <h3 className="font-bold text-lg capitalize">{v.word}</h3>
                   <p className="text-primary text-lg">{v.hebrew}</p>
                 </div>
                 {v.is_slang && <Badge className="bg-accent text-accent-foreground">slang</Badge>}
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => speak(v.word)} className="flex-1">
+                <Button size="sm" variant="outline" onClick={() => speak(v.word)} className="flex-1" aria-label={`Hear ${v.word} pronounced`}>
                   <Volume2 className="h-3 w-3 mr-1" />Hear
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => remove(v.id)}>
+                <Button size="sm" variant="ghost" onClick={() => remove(v.id)} aria-label={`Remove ${v.word} from vocabulary`}>
                   <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
               </div>
@@ -74,6 +75,13 @@ const Vocab = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>My Spanish vocabulary — Ritmo</title>
+        <meta name="description" content="Your saved Spanish words and slang collected from Bachata and Reggaeton lyrics." />
+        <link rel="canonical" href="/vocab" />
+        <meta property="og:title" content="My Spanish vocabulary — Ritmo" />
+        <meta property="og:url" content="/vocab" />
+      </Helmet>
       <h1 className="text-4xl font-bold mb-2 neon-text">My Vocab</h1>
       <p className="text-muted-foreground mb-8">Words you've collected from songs.</p>
 
