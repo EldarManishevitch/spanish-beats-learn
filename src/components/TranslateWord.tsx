@@ -50,7 +50,13 @@ export const TranslateWord = ({
 
   const speak = () => {
     const u = new SpeechSynthesisUtterance(cleaned);
-    u.lang = "es-ES";
+    u.lang = "es-MX";
+    // Prefer a Latin American (Mexican) voice when available for Seseo pronunciation
+    const voices = speechSynthesis.getVoices();
+    const latam = voices.find((v) => /es[-_]MX/i.test(v.lang))
+      || voices.find((v) => /es[-_](US|CO|AR|PE|CL|VE|EC|GT|CR|PA|DO|PR|UY|PY|BO|HN|NI|SV)/i.test(v.lang))
+      || voices.find((v) => v.lang?.toLowerCase().startsWith("es") && !/es[-_]ES/i.test(v.lang));
+    if (latam) u.voice = latam;
     u.rate = 0.85;
     speechSynthesis.speak(u);
   };
