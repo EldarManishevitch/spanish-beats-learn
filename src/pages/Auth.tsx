@@ -15,10 +15,20 @@ const Auth = () => {
   }, [session, loading, nav]);
 
   const handleGoogle = async () => {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/",
-    });
-    if (error) toast.error(error.message);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+        extraParams: { prompt: "select_account" },
+      });
+      if (result.redirected) return;
+      if (result.error) {
+        toast.error(result.error.message || "Sign in failed. Please try again.");
+        return;
+      }
+      nav("/", { replace: true });
+    } catch (e) {
+      toast.error("Sign in failed. Please try again in your default browser.");
+    }
   };
 
   return (
