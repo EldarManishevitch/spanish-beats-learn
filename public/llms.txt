@@ -1,0 +1,10 @@
+# Ritmo
+
+> Learn Spanish through Bachata and Reggaeton music with interactive lyrics, English translations, phonetic pronunciation guides, vocabulary drills, and AI-generated daily conversations.
+
+Ritmo is a web app that helps English (and Hebrew) speakers pick up Spanish by playing along to Latin music. Users search any Spanish song on YouTube, see the lyrics line-by-line with translation and pronunciation, click words to save them, and review vocabulary through quizzes, flashcards, and roleplay scenarios.
+
+## Pages
+
+- [Home / Discover](/): Search for a Spanish song and browse recently added tracks.
+- [Sign in](/auth): Google sign-in to save vocabulary and progress.

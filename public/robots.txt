@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://spanish-beats-learn.lovable.app/sitemap.xml
