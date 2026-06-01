@@ -126,7 +126,7 @@ const Roleplay = () => {
               <Card key={i} className="glass p-5 max-w-2xl">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <span className="text-xs uppercase tracking-widest text-accent">{scenario.character_name}</span>
-                  <Button size="icon" variant="ghost" onClick={() => speak(step.spanish_text)}>
+                  <Button size="icon" variant="ghost" onClick={() => speak(step.spanish_text)} aria-label="Hear line pronounced">
                     <Volume2 className="h-4 w-4" />
                   </Button>
                 </div>

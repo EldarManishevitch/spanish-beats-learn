@@ -125,7 +125,7 @@ const SongPage = () => {
                   <Card key={v.word} className={`glass p-4 ${flagged ? "ring-2 ring-destructive/50 pulse-flag" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h4 className="font-bold capitalize text-lg">{v.word}</h4>
+                        <h3 className="font-bold capitalize text-lg">{v.word}</h3>
                         <p className="text-primary">{v.hebrew}</p>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
@@ -139,7 +139,7 @@ const SongPage = () => {
               {flags.filter((f) => !vocab.find((v) => v.word === f.word)).map((f) => (
                 <Card key={f.word} className="glass p-4 ring-2 ring-destructive/50 pulse-flag">
                   <div className="flex items-start justify-between">
-                    <h4 className="font-bold capitalize text-lg">{f.word}</h4>
+                    <h3 className="font-bold capitalize text-lg">{f.word}</h3>
                     <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />needs practice</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Missed {f.miss_count}× in quiz</p>

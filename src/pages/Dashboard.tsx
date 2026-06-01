@@ -71,7 +71,7 @@ const Dashboard = () => {
             </div>
             <div className="flex-1 min-w-0">
               <Badge className="mb-2 bg-accent text-accent-foreground hover:bg-accent">Slang of the Day</Badge>
-              <h3 className="text-2xl font-bold mb-1 capitalize">{slang.term}</h3>
+              <h2 className="text-2xl font-bold mb-1 capitalize">{slang.term}</h2>
               <div className="space-y-1.5 mb-4 text-sm">
                 {slang.literal_meaning && (
                   <p>

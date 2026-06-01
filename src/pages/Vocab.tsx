@@ -52,16 +52,16 @@ const Vocab = () => {
             <Card key={v.id} className="glass p-4 hover:shadow-neon-pink transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
-                  <h4 className="font-bold text-lg capitalize">{v.word}</h4>
+                  <h3 className="font-bold text-lg capitalize">{v.word}</h3>
                   <p className="text-primary text-lg">{v.hebrew}</p>
                 </div>
                 {v.is_slang && <Badge className="bg-accent text-accent-foreground">slang</Badge>}
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => speak(v.word)} className="flex-1">
+                <Button size="sm" variant="outline" onClick={() => speak(v.word)} className="flex-1" aria-label={`Hear ${v.word} pronounced`}>
                   <Volume2 className="h-3 w-3 mr-1" />Hear
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => remove(v.id)}>
+                <Button size="sm" variant="ghost" onClick={() => remove(v.id)} aria-label={`Remove ${v.word} from vocabulary`}>
                   <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
               </div>

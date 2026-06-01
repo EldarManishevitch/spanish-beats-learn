@@ -95,7 +95,7 @@ const Conversations = () => {
                 <p className="text-sm text-accent/90 italic tracking-wide">{p.pronunciation}</p>
                 <p className="text-sm text-muted-foreground italic">{p.english_translation}</p>
               </div>
-              <Button size="icon" variant="ghost" onClick={() => speak(p.spanish_text)}>
+              <Button size="icon" variant="ghost" onClick={() => speak(p.spanish_text)} aria-label="Hear phrase pronounced">
                 <Volume2 className="h-4 w-4" />
               </Button>
             </div>

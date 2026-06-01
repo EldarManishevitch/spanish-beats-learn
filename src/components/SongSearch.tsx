@@ -95,7 +95,7 @@ export const SongSearch = () => {
           placeholder="e.g. Shakira Hips Don't Lie"
           className="bg-white ritmo-border text-foreground placeholder:text-muted-foreground h-11"
         />
-        <Button type="submit" disabled={searching || q.trim().length < 2} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft h-11 w-11 p-0 shrink-0">
+        <Button type="submit" disabled={searching || q.trim().length < 2} aria-label="Search YouTube for a Spanish song" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft h-11 w-11 p-0 shrink-0">
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </form>
