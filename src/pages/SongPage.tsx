@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
@@ -81,6 +82,22 @@ const SongPage = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>{`${song.title} by ${song.artist} — Lyrics & translation | Ritmo`}</title>
+        <meta name="description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}. Learn Spanish while singing along.`} />
+        <link rel="canonical" href={`/song/${song.id}`} />
+        <meta property="og:title" content={`${song.title} — ${song.artist}`} />
+        <meta property="og:url" content={`/song/${song.id}`} />
+        {song.album_art_url && <meta property="og:image" content={song.album_art_url} />}
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "MusicComposition",
+          name: song.title,
+          composer: song.artist,
+          inLanguage: "es",
+          description: `Spanish lyrics with English translation and pronunciation for ${song.title} by ${song.artist}.`,
+        })}</script>
+      </Helmet>
       <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back
       </Link>

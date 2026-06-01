@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -74,6 +75,13 @@ const Vocab = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>My Spanish vocabulary — Ritmo</title>
+        <meta name="description" content="Your saved Spanish words and slang collected from Bachata and Reggaeton lyrics." />
+        <link rel="canonical" href="/vocab" />
+        <meta property="og:title" content="My Spanish vocabulary — Ritmo" />
+        <meta property="og:url" content="/vocab" />
+      </Helmet>
       <h1 className="text-4xl font-bold mb-2 neon-text">My Vocab</h1>
       <p className="text-muted-foreground mb-8">Words you've collected from songs.</p>
 

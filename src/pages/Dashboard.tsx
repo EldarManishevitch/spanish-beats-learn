@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
@@ -55,6 +56,20 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>Ritmo — Learn Spanish with Bachata & Reggaeton</title>
+        <meta name="description" content="Pick a Spanish song and sing along to learn the language. Interactive lyrics, translations, pronunciation, and vocabulary drills." />
+        <link rel="canonical" href="/" />
+        <meta property="og:title" content="Ritmo — Learn Spanish with Bachata & Reggaeton" />
+        <meta property="og:url" content="/" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Ritmo",
+          url: "https://spanish-beats-learn.lovable.app/",
+          description: "Learn Spanish through Bachata and Reggaeton lyrics with interactive translations, pronunciation guides, and vocabulary drills.",
+        })}</script>
+      </Helmet>
       <SiteTour />
       <section className="mb-10 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">
