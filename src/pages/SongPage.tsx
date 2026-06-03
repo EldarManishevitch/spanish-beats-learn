@@ -90,9 +90,11 @@ const SongPage = () => {
       <Helmet>
         <title>{`${song.title} by ${song.artist} — Lyrics & translation | Ritmo`}</title>
         <meta name="description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}. Learn Spanish while singing along.`} />
-        <link rel="canonical" href={`/song/${song.id}`} />
+        <link rel="canonical" href={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
         <meta property="og:title" content={`${song.title} — ${song.artist}`} />
-        <meta property="og:url" content={`/song/${song.id}`} />
+        <meta property="og:description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}.`} />
+        <meta property="og:url" content={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
+        <meta property="og:type" content="music.song" />
         {song.album_art_url && <meta property="og:image" content={song.album_art_url} />}
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
