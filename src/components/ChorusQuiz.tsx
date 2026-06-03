@@ -6,6 +6,7 @@ import { Trophy, Check, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProgress } from "@/hooks/useProgress";
 import { UnlockCelebration } from "@/components/UnlockCelebration";
+import { touchStreak } from "@/lib/streak";
 import { toast } from "sonner";
 
 type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
@@ -113,6 +114,7 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
       setDone(true);
       if (user) {
         await supabase.from("quiz_attempts").insert({ user_id: user.id, song_id: songId, score, total: questions.length });
+        await touchStreak();
         const r = await recompute();
         if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
         else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });

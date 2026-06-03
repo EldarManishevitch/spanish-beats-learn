@@ -77,6 +77,10 @@ const SongPage = () => {
     loadVocab();
   }, [id, user]);
 
+  useEffect(() => {
+    if (user && song) { touchStreak(); }
+  }, [user, song?.id]);
+
   if (!song) return <SongSkeleton />;
 
   const flaggedSet = new Set(flags.map((f) => f.word));
