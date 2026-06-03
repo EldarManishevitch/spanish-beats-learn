@@ -3,6 +3,7 @@ import { Music, BookOpen, LogOut, Sparkles, RotateCcw, MessageCircle, Mic } from
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CefrBadge } from "@/components/CefrBadge";
+import { StreakBadge } from "@/components/StreakBadge";
 import { ReactNode } from "react";
 
 export const AppLayout = ({ children }: { children: ReactNode }) => {
@@ -37,6 +38,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
             <NavItem to="/roleplay" icon={Mic} label="Roleplay" />
           </nav>
           <div className="flex items-center gap-2 shrink-0">
+            <StreakBadge />
             <CefrBadge />
             <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out"><LogOut className="h-4 w-4" /></Button>
           </div>

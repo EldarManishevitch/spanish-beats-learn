@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, BookOpen, Music, Trophy, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCachedSong, prefetchSong } from "@/lib/songCache";
+import { touchStreak } from "@/lib/streak";
 
 type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string; album_art_url: string | null };
 type Line = { id: string; line_index: number; spanish_text: string; pronunciation: string | null; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
@@ -75,6 +76,10 @@ const SongPage = () => {
     }
     loadVocab();
   }, [id, user]);
+
+  useEffect(() => {
+    if (user && song) { touchStreak(); }
+  }, [user, song?.id]);
 
   if (!song) return <SongSkeleton />;
 
