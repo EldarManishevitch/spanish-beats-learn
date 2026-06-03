@@ -86,6 +86,7 @@ const ReviewRoom = () => {
         </TabsList>
 
         <TabsContent value="cards">
+          <h2 className="sr-only">Flashcards</h2>
           {stats.length === 0 ? (
             <Card className="glass p-12 text-center">
               <RotateCcw className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -108,8 +109,10 @@ const ReviewRoom = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
+          <h2 className="sr-only">Review Quiz</h2>
           <ReviewQuiz stats={stats} vocabMap={vocabMap} onDone={load} />
         </TabsContent>
+
       </Tabs>
     </AppLayout>
   );
