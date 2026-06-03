@@ -13,7 +13,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => {
     const active = loc.pathname === to || (to !== "/" && loc.pathname.startsWith(to));
     return (
-      <Link to={to} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/10 text-primary" : "text-secondary hover:text-foreground hover:bg-muted"}`}>
+      <Link to={to} aria-label={label} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/10 text-primary" : "text-secondary hover:text-foreground hover:bg-muted"}`}>
         <Icon className="h-4 w-4" />
         <span className="hidden md:inline">{label}</span>
       </Link>
@@ -24,7 +24,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border">
         <div className="container flex h-16 items-center justify-between gap-2">
-          <Link to="/" className="flex items-center gap-2 shrink-0">
+          <Link to="/" aria-label="Ritmo home" className="flex items-center gap-2 shrink-0">
             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-soft">
               <Music className="h-5 w-5 text-primary-foreground" />
             </div>

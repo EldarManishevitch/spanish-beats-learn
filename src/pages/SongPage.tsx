@@ -90,9 +90,11 @@ const SongPage = () => {
       <Helmet>
         <title>{`${song.title} by ${song.artist} — Lyrics & translation | Ritmo`}</title>
         <meta name="description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}. Learn Spanish while singing along.`} />
-        <link rel="canonical" href={`/song/${song.id}`} />
+        <link rel="canonical" href={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
         <meta property="og:title" content={`${song.title} — ${song.artist}`} />
-        <meta property="og:url" content={`/song/${song.id}`} />
+        <meta property="og:description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}.`} />
+        <meta property="og:url" content={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
+        <meta property="og:type" content="music.song" />
         {song.album_art_url && <meta property="og:image" content={song.album_art_url} />}
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
@@ -130,10 +132,12 @@ const SongPage = () => {
         </TabsList>
 
         <TabsContent value="lyrics">
+          <h2 className="sr-only">Lyrics with translation</h2>
           <LyricsPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
         </TabsContent>
 
         <TabsContent value="vocab">
+          <h2 className="sr-only">Vocabulary saved from this song</h2>
           {vocab.length === 0 && flags.length === 0 ? (
             <Card className="glass p-8 text-center">
               <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -172,8 +176,10 @@ const SongPage = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
+          <h2 className="sr-only">Chorus quiz</h2>
           <ChorusQuiz songId={song.id} lines={lines} />
         </TabsContent>
+
       </Tabs>
     </AppLayout>
   );

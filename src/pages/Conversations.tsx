@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
@@ -71,6 +72,15 @@ const Conversations = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>Daily Conversations — Latin-life Spanish phrases | Ritmo</title>
+        <meta name="description" content="Five fresh Spanish phrases every day for real Latin-life situations: clubs, beaches, colmados, ordering drinks and asking for a dance." />
+        <link rel="canonical" href="https://spanish-beats-learn.lovable.app/conversations" />
+        <meta property="og:title" content="Daily Conversations — Ritmo" />
+        <meta property="og:description" content="Five new Spanish phrases for Latin-life situations, refreshed each day." />
+        <meta property="og:url" content="https://spanish-beats-learn.lovable.app/conversations" />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <header className="mb-8 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold neon-text mb-2 flex items-center gap-3">

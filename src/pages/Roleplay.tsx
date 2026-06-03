@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
@@ -98,6 +99,15 @@ const Roleplay = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>Roleplay — Practice Spanish in Latin scenarios | Ritmo</title>
+        <meta name="description" content="Five-turn AI roleplays in real Latin settings — Havana mojitos, Cartagena beaches, Medellín reggaeton clubs — tuned to your CEFR level." />
+        <link rel="canonical" href="https://spanish-beats-learn.lovable.app/roleplay" />
+        <meta property="og:title" content="Roleplay — Ritmo" />
+        <meta property="og:description" content="AI-led Spanish roleplays in real Latin-life scenarios, tuned to your CEFR level." />
+        <meta property="og:url" content="https://spanish-beats-learn.lovable.app/roleplay" />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <UnlockCelebration open={unlock.open} title={unlock.title} subtitle={unlock.subtitle} onClose={() => setUnlock({ open: false, title: "" })} />
 
       <header className="mb-6 flex items-end justify-between gap-3">

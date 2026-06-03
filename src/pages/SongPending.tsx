@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,6 +82,16 @@ const SongPending = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>{`Preparing ${meta?.title ?? "your song"} — Ritmo`}</title>
+        <meta name="description" content="Fetching lyrics, generating English translation and phonetics, and saving your song to your library." />
+        <meta name="robots" content="noindex" />
+        <link rel="canonical" href={`https://spanish-beats-learn.lovable.app/song/pending/${youtubeId ?? ""}`} />
+        <meta property="og:title" content={`Preparing ${meta?.title ?? "your song"} — Ritmo`} />
+        <meta property="og:description" content="Generating Spanish lyrics, English translation and phonetics." />
+        <meta property="og:url" content={`https://spanish-beats-learn.lovable.app/song/pending/${youtubeId ?? ""}`} />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <header className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-6 animate-fade-in">
         {meta?.thumbnail && (
           <img src={meta.thumbnail} alt={meta.title} className="h-24 w-24 rounded-xl object-cover shadow-neon-pink" />

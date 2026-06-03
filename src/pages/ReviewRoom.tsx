@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
@@ -56,12 +57,23 @@ const ReviewRoom = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>Review Room — Spaced repetition for Spanish vocab | Ritmo</title>
+        <meta name="description" content="Drill the Spanish words you keep missing with flashcards and a review quiz built from your own song history." />
+        <link rel="canonical" href="https://spanish-beats-learn.lovable.app/review" />
+        <meta property="og:title" content="Review Room — Ritmo" />
+        <meta property="og:description" content="Flashcards and quiz to master the Spanish words you keep getting wrong." />
+        <meta property="og:url" content="https://spanish-beats-learn.lovable.app/review" />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <header className="mb-8">
         <h1 className="text-4xl font-bold neon-text mb-2 flex items-center gap-3">
           <RotateCcw className="h-8 w-8 text-primary" /> Review Room
         </h1>
         <p className="text-muted-foreground">{stats.length} word{stats.length === 1 ? "" : "s"} need your attention.</p>
       </header>
+
+
 
       <Tabs defaultValue="cards">
         <TabsList className="glass mb-6">
@@ -74,6 +86,7 @@ const ReviewRoom = () => {
         </TabsList>
 
         <TabsContent value="cards">
+          <h2 className="sr-only">Flashcards</h2>
           {stats.length === 0 ? (
             <Card className="glass p-12 text-center">
               <RotateCcw className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -96,8 +109,10 @@ const ReviewRoom = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
+          <h2 className="sr-only">Review Quiz</h2>
           <ReviewQuiz stats={stats} vocabMap={vocabMap} onDone={load} />
         </TabsContent>
+
       </Tabs>
     </AppLayout>
   );
