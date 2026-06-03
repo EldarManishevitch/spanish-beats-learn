@@ -7,6 +7,9 @@ export type Progress = {
   total_xp: number;
   unlocked_conversations: boolean;
   mastered_count: number;
+  current_streak: number;
+  longest_streak: number;
+  last_practice_date: string | null;
 };
 
 export const TIER_NAMES: Record<string, string> = {
@@ -23,13 +26,19 @@ export const useProgress = () => {
     if (!user) return;
     const { data } = await supabase
       .from("profiles")
-      .select("cefr_level, total_xp, unlocked_conversations, mastered_count")
+      .select("cefr_level, total_xp, unlocked_conversations, mastered_count, current_streak, longest_streak, last_practice_date")
       .eq("id", user.id)
       .maybeSingle();
     if (data) setProgress(data as Progress);
   }, [user]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const handler = () => { refresh(); };
+    window.addEventListener("streak-updated", handler);
+    return () => window.removeEventListener("streak-updated", handler);
+  }, [refresh]);
 
   const addXp = useCallback(async (amount: number) => {
     if (!user) return;
