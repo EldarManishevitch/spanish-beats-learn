@@ -57,12 +57,23 @@ const ReviewRoom = () => {
 
   return (
     <AppLayout>
+      <Helmet>
+        <title>Review Room — Spaced repetition for Spanish vocab | Ritmo</title>
+        <meta name="description" content="Drill the Spanish words you keep missing with flashcards and a review quiz built from your own song history." />
+        <link rel="canonical" href="https://spanish-beats-learn.lovable.app/review" />
+        <meta property="og:title" content="Review Room — Ritmo" />
+        <meta property="og:description" content="Flashcards and quiz to master the Spanish words you keep getting wrong." />
+        <meta property="og:url" content="https://spanish-beats-learn.lovable.app/review" />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <header className="mb-8">
         <h1 className="text-4xl font-bold neon-text mb-2 flex items-center gap-3">
           <RotateCcw className="h-8 w-8 text-primary" /> Review Room
         </h1>
         <p className="text-muted-foreground">{stats.length} word{stats.length === 1 ? "" : "s"} need your attention.</p>
       </header>
+
+
 
       <Tabs defaultValue="cards">
         <TabsList className="glass mb-6">
