@@ -125,9 +125,12 @@ export type Database = {
           avatar_url: string | null
           cefr_level: string
           created_at: string
+          current_streak: number
           display_name: string | null
           id: string
+          last_practice_date: string | null
           learning_level: string | null
+          longest_streak: number
           mastered_count: number
           total_xp: number
           unlocked_conversations: boolean
@@ -137,9 +140,12 @@ export type Database = {
           avatar_url?: string | null
           cefr_level?: string
           created_at?: string
+          current_streak?: number
           display_name?: string | null
           id: string
+          last_practice_date?: string | null
           learning_level?: string | null
+          longest_streak?: number
           mastered_count?: number
           total_xp?: number
           unlocked_conversations?: boolean
@@ -149,9 +155,12 @@ export type Database = {
           avatar_url?: string | null
           cefr_level?: string
           created_at?: string
+          current_streak?: number
           display_name?: string | null
           id?: string
+          last_practice_date?: string | null
           learning_level?: string | null
+          longest_streak?: number
           mastered_count?: number
           total_xp?: number
           unlocked_conversations?: boolean
@@ -373,6 +382,7 @@ export type Database = {
     }
     Functions: {
       recompute_cefr: { Args: { p_user_id: string }; Returns: Json }
+      touch_streak: { Args: { p_tz?: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
