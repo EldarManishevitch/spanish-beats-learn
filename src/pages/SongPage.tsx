@@ -132,10 +132,12 @@ const SongPage = () => {
         </TabsList>
 
         <TabsContent value="lyrics">
+          <h2 className="sr-only">Lyrics with translation</h2>
           <LyricsPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
         </TabsContent>
 
         <TabsContent value="vocab">
+          <h2 className="sr-only">Vocabulary saved from this song</h2>
           {vocab.length === 0 && flags.length === 0 ? (
             <Card className="glass p-8 text-center">
               <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -174,8 +176,10 @@ const SongPage = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
+          <h2 className="sr-only">Chorus quiz</h2>
           <ChorusQuiz songId={song.id} lines={lines} />
         </TabsContent>
+
       </Tabs>
     </AppLayout>
   );
