@@ -1,0 +1,1 @@
+GRANT UPDATE (display_name, avatar_url, learning_level) ON public.profiles TO authenticated;
