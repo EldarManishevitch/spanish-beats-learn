@@ -42,13 +42,8 @@ export const useProgress = () => {
 
   const addXp = useCallback(async (amount: number) => {
     if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("total_xp")
-      .eq("id", user.id)
-      .maybeSingle();
-    const next = (data?.total_xp ?? 0) + amount;
-    await supabase.from("profiles").update({ total_xp: next }).eq("id", user.id);
+    const { error } = await supabase.functions.invoke("add-xp", { body: { amount } });
+    if (error) { console.error("add-xp failed", error); return; }
     await refresh();
   }, [user, refresh]);
 
