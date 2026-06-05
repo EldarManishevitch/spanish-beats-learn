@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { prefetchSong, prefetchByYoutubeId, registerGeneration } from "@/lib/songCache";
+import { parseArtistTitle } from "@/lib/cleanTitle";
 
 type Result = { youtube_id: string; title: string; channel: string; thumbnail: string };
 
