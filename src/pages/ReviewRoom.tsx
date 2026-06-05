@@ -174,8 +174,8 @@ const ReviewQuiz = ({ stats, vocabMap, onDone }: { stats: Stat[]; vocabMap: Reco
         is_mastered: mastered,
         last_reviewed: new Date().toISOString(),
       }).eq("id", s.id);
-      await addXp(5);
-      if (mastered) await addXp(25);
+      await addXp("quiz_correct", `review:${s.id}:${s.correct_count + 1}`);
+      if (mastered) await addXp("word_mastered", s.word.toLowerCase());
     } else {
       await supabase.from("user_vocab_stats").update({
         fail_count: s.fail_count + 1,
