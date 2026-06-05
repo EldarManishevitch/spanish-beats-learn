@@ -487,7 +487,17 @@ Deno.serve(async (req) => {
 
     if (!geniusHit) {
       console.warn("Genius lookup failed — continuing with YouTube metadata only");
+    } else {
+      // Reject Genius pages that are compilations / awards / monthly singles lists /
+      // "Various Artists" pages — these are not real songs.
+      const COMPILATION_RE = /(awards?|nominees?|billboard|playlist|compilation|compilaci[oó]n|full album|[aá]lbum completo|mega ?mix|top \d+|best of|lo mejor de|sencillos del mes|monthly singles|hits of \d{4}|singles? of \d{4})/i;
+      const COMPILATION_ARTIST_RE = /^(billboard|genius(\s+en\s+espa[nñ]ol)?|various artists|spotify|apple music|youtube)$/i;
+      if (COMPILATION_RE.test(geniusHit.title) || COMPILATION_ARTIST_RE.test(geniusHit.artist.trim())) {
+        console.warn("Rejecting Genius compilation/awards page:", geniusHit.title, "by", geniusHit.artist);
+        geniusHit = null;
+      }
     }
+
 
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
