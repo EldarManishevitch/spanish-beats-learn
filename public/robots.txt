@@ -1,16 +1,21 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /song/pending/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /song/pending/
 
 User-agent: Twitterbot
 Allow: /
+Disallow: /song/pending/
 
 User-agent: facebookexternalhit
 Allow: /
+Disallow: /song/pending/
 
 User-agent: *
 Allow: /
+Disallow: /song/pending/
 
 Sitemap: https://spanish-beats-learn.lovable.app/sitemap.xml
