@@ -67,6 +67,10 @@ export const SongSearch = () => {
         .then(({ data, error }) => {
           if (error) return { error: error.message };
           if (data?.error) return { error: data.error };
+          if (data?.song_id) {
+            // Notify any list views (e.g. Dashboard "Last Searched") to refetch.
+            window.dispatchEvent(new CustomEvent("song-generated", { detail: { song_id: data.song_id } }));
+          }
           return { song_id: data.song_id, lines: data.lines };
         });
       registerGeneration(r.youtube_id, generation);

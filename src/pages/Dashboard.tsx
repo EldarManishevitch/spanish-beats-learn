@@ -28,13 +28,17 @@ const Dashboard = () => {
   const [slang, setSlang] = useState<Slang | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    supabase
+  const loadSongs = async () => {
+    const { data } = await supabase
       .from("songs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(6)
-      .then(({ data }) => setSongs(data ?? []));
+      .limit(6);
+    setSongs(data ?? []);
+  };
+
+  useEffect(() => {
+    loadSongs();
     supabase
       .from("slang_dictionary")
       .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
@@ -43,6 +47,17 @@ const Dashboard = () => {
       .then(({ data }) => {
         if (data?.length) setSlang(data[Math.floor(Math.random() * data.length)] as Slang);
       });
+
+    const onGenerated = () => loadSongs();
+    const onVisible = () => { if (document.visibilityState === "visible") loadSongs(); };
+    window.addEventListener("song-generated", onGenerated);
+    window.addEventListener("focus", onGenerated);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("song-generated", onGenerated);
+      window.removeEventListener("focus", onGenerated);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const matchedSong = useMemo(() => {
