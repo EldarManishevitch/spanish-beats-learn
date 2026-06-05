@@ -77,10 +77,12 @@ const Vocab = () => {
     <AppLayout>
       <Helmet>
         <title>My Spanish vocabulary — Ritmo</title>
-        <meta name="description" content="Your saved Spanish words and slang collected from Bachata and Reggaeton lyrics." />
+        <meta name="description" content="Your personal collection of Spanish words and urban slang saved from Bachata, Reggaeton, and Latin trap lyrics — review, hear pronunciations, and master what you've learned." />
         <link rel="canonical" href="/vocab" />
         <meta property="og:title" content="My Spanish vocabulary — Ritmo" />
+        <meta property="og:description" content="Browse the Spanish words and slang you've saved from Latin music lyrics, with translations and audio pronunciation." />
         <meta property="og:url" content="/vocab" />
+        <meta property="og:type" content="website" />
       </Helmet>
       <h1 className="text-4xl font-bold mb-2 neon-text">My Vocab</h1>
       <p className="text-muted-foreground mb-8">Words you've collected from songs.</p>
