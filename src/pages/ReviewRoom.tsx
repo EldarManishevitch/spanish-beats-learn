@@ -48,7 +48,7 @@ const ReviewRoom = () => {
     await supabase.from("user_vocab_stats")
       .update({ is_mastered: true, fail_count: 0, last_reviewed: new Date().toISOString() })
       .eq("id", s.id);
-    await addXp(25);
+    await addXp("word_mastered", s.word.toLowerCase());
     const r = await recompute();
     if (r?.unlock_changed) toast.success("¡Conversations unlocked!");
     if (r?.tier_changed) toast.success("CEFR rank up!");
