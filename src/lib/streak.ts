@@ -30,7 +30,9 @@ export async function touchStreak(reason: TouchReason = "quiz_completed"): Promi
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const startedAt = performance.now();
-  const { data, error } = await supabase.rpc("touch_streak" as any, { p_tz: tz });
+  const { data, error } = await supabase.functions.invoke("touch-streak", {
+    body: { tz, reason },
+  });
   const ms = Math.round(performance.now() - startedAt);
 
   if (error) {
