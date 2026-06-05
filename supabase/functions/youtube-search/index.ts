@@ -98,8 +98,8 @@ Deno.serve(async (req) => {
     const data = await resp.json();
     const raw = (data.items ?? []).map((it: any) => ({
       youtube_id: it.id.videoId,
-      title: it.snippet.title,
-      channel: it.snippet.channelTitle,
+      title: cleanYoutubeText(it.snippet.title) || it.snippet.title,
+      channel: cleanYoutubeText(it.snippet.channelTitle) || it.snippet.channelTitle,
       thumbnail: it.snippet.thumbnails?.medium?.url ?? it.snippet.thumbnails?.default?.url,
       published_at: it.snippet.publishedAt,
     })).filter((r: any) => r.youtube_id);
