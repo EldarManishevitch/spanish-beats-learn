@@ -382,7 +382,10 @@ export type Database = {
     }
     Functions: {
       recompute_cefr: { Args: { p_user_id: string }; Returns: Json }
-      touch_streak: { Args: { p_tz?: string }; Returns: Json }
+      touch_streak: {
+        Args: { p_tz?: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

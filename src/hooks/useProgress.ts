@@ -49,7 +49,7 @@ export const useProgress = () => {
 
   const recompute = useCallback(async (): Promise<{ tier_changed: boolean; unlock_changed: boolean } | null> => {
     if (!user) return null;
-    const { data, error } = await supabase.rpc("recompute_cefr" as any, { p_user_id: user.id });
+    const { data, error } = await supabase.functions.invoke("recompute-cefr", { body: {} });
     if (error) { console.error("recompute_cefr failed", error); return null; }
     await refresh();
     const r = data as any;
