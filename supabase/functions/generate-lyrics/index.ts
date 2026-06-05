@@ -645,7 +645,7 @@ ${rawLyrics}`;
         genre: parsed.genre || "pop latino",
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
-        album_art_url: thumbnail ?? null,
+        album_art_url: safeThumb,
       })
       .select("id")
       .single();
