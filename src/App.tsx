@@ -27,6 +27,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reggaeton-slang-guide" element={<ReggaetonSlangGuide />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/song/pending/:youtubeId" element={<ProtectedRoute><SongPending /></ProtectedRoute>} />
             <Route path="/song/:id" element={<ProtectedRoute><SongPage /></ProtectedRoute>} />
