@@ -53,9 +53,7 @@ export const SongSearch = () => {
       }
 
       // Optimistic path: navigate to pending page, generate in background.
-      const [titleGuess, artistGuess] = r.title.includes(" - ")
-        ? r.title.split(" - ").map((s) => s.trim())
-        : [r.title, r.channel];
+      const { artist: artistGuess, title: titleGuess } = parseArtistTitle(r.title, r.channel);
       prefetchByYoutubeId(r.youtube_id, {
         title: titleGuess || r.title,
         artist: artistGuess || r.channel,
