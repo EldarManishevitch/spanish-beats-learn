@@ -86,7 +86,7 @@ const ReggaetonSlangGuide = () => {
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>Reggaeton Slang & Spanish Curse Words: Lyrics Guide | Ritmo</title>
-        <meta name="description" content="A searchable dictionary of reggaeton slang and Spanish curse words from Bad Bunny, Karol G, Daddy Yankee and more. Contextual meanings, literal meanings, English equivalents, and song examples." />
+        <meta name="description" content="Searchable guide to reggaeton slang and Spanish curse words from Bad Bunny, Karol G, Daddy Yankee — meanings, English equivalents, and song examples." />
         <link rel="canonical" href="https://spanish-beats-learn.lovable.app/reggaeton-slang-guide" />
         <meta property="og:title" content="Reggaeton Slang & Spanish Curse Words: Lyrics Guide" />
         <meta property="og:description" content="A searchable dictionary of urban Spanish slang and curse words from reggaeton, Latin trap, and dembow lyrics." />
