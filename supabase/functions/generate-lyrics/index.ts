@@ -192,13 +192,39 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&nbsp;/g, " ");
 }
 
+// Strip ALL non-name junk from a YouTube title/channel: bracketed labels
+// (Official Audio, Lyric Video, 4K, Visualizer, ...), trailing channel suffixes
+// (- Topic, VEVO, | Sony Music), emojis, etc. Keeps "feat./ft./with/con" credits.
+const JUNK_KEYWORDS = [
+  "official", "audio", "video", "lyric", "lyrics", "lyric video", "music video",
+  "mv", "m/v", "visualizer", "visualiser", "hd", "hq", "4k", "8k",
+  "remaster", "remastered", "anniversary", "edit", "extended", "version",
+  "color coded", "color-coded", "sub español", "sub espanol", "sub eng",
+  "english", "letra", "vevo", "topic", "explicit",
+];
+const FEAT_RE = /\s*[\(\[\{]\s*((?:feat\.?|ft\.?|featuring|con|with)\s+[^)\]\}]+)[\)\]\}]/i;
+const trimSeparators = (s: string) =>
+  s.replace(/^[\s\-–—|:•·]+|[\s\-–—|:•·]+$/g, "").replace(/\s+/g, " ").trim();
 function cleanYoutubeTitle(raw: string): string {
-  return decodeHtmlEntities(raw)
-    .replace(/\([^)]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live|version|anniversary|edit|extended|remaster(?:ed)?|4k|mv|m\/v)[^)]*\)/gi, "")
-    .replace(/\[[^\]]*(?:audio|video|lyric|official|hd|hq|visualizer|remix|live|version|anniversary|edit|extended|remaster(?:ed)?|4k|mv|m\/v)[^\]]*\]/gi, "")
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  if (!raw) return "";
+  let s = decodeHtmlEntities(raw)
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "");
+  let feat = "";
+  const m = s.match(FEAT_RE);
+  if (m) { feat = ` ${m[1].replace(/\s+/g, " ").trim()}`; s = s.replace(FEAT_RE, " "); }
+  s = s.replace(/[\(\[\{]([^\)\]\}]*)[\)\]\}]/g, (full, inner) => {
+    const low = String(inner).toLowerCase();
+    if (JUNK_KEYWORDS.some((k) => low.includes(k))) return " ";
+    if (/^\s*(19|20)\d{2}\s*$/.test(inner)) return " ";
+    return full;
+  });
+  s = s.replace(/\s*[|•·]\s*[^|•·]*$/g, " ");
+  s = s.replace(/\s*[-–—]\s*(?:Topic|VEVO|Official(?:\s+(?:Audio|Video|Music))?|Music|Records)\s*$/i, "");
+  s = s.replace(/\s*-\s*Topic\s*$/i, "").replace(/VEVO\s*$/i, "");
+  s = s.replace(/\s+(?:HD|HQ|4K|8K|Official|Audio|Video|Visualizer|Lyrics?)\s*$/gi, "");
+  s = trimSeparators(s);
+  if (feat && !/feat\.?|ft\.?|featuring|with|con/i.test(s)) s = `${s}${feat}`;
+  return trimSeparators(s);
 }
 
 // Strip featuring credits and trailing junk for a more Genius-friendly query
