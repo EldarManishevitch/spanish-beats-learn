@@ -177,7 +177,7 @@ const SongPage = () => {
 
         <TabsContent value="quiz">
           <h2 className="sr-only">Chorus quiz</h2>
-          <ChorusQuiz songId={song.id} lines={lines} />
+          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} />
         </TabsContent>
 
       </Tabs>
