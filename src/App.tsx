@@ -14,6 +14,7 @@ import ReviewRoom from "./pages/ReviewRoom";
 import Conversations from "./pages/Conversations";
 import Roleplay from "./pages/Roleplay";
 import NotFound from "./pages/NotFound.tsx";
+import ReggaetonSlangGuide from "./pages/ReggaetonSlangGuide";
 
 const queryClient = new QueryClient();
 
