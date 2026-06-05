@@ -120,7 +120,7 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
         is_mastered: mastered || existing.is_mastered,
         last_reviewed: now,
       }).eq("id", existing.id);
-      if (mastered && !existing.is_mastered) await addXp(25);
+      if (mastered && !existing.is_mastered) await addXp("word_mastered", word);
     } else {
       await supabase.from("user_vocab_stats").insert({
         user_id: user.id, word,
