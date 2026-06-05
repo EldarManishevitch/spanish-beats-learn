@@ -151,7 +151,7 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
       setDone(true);
       if (user) {
         await supabase.from("quiz_attempts").insert({ user_id: user.id, song_id: songId, score, total: questions.length });
-        await touchStreak();
+        await touchStreak("quiz_completed");
         const r = await recompute();
         if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
         else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });
