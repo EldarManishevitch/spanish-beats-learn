@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Bias toward audio-only uploads to avoid music-video desync
-    const query = encodeURIComponent(`${q} audio`);
+    // Bias toward official single-track uploads ("official audio" / "topic" channels)
+    // and stay within YouTube's Music category to block non-music channels.
+    const query = encodeURIComponent(`${q} official audio topic`);
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=10&q=${query}&key=${YOUTUBE_API_KEY}`;
     const resp = await fetch(url);
     if (!resp.ok) {
@@ -56,13 +57,33 @@ Deno.serve(async (req) => {
       });
     }
     const data = await resp.json();
-    const results = (data.items ?? []).map((it: any) => ({
+    const raw = (data.items ?? []).map((it: any) => ({
       youtube_id: it.id.videoId,
       title: it.snippet.title,
       channel: it.snippet.channelTitle,
       thumbnail: it.snippet.thumbnails?.medium?.url ?? it.snippet.thumbnails?.default?.url,
       published_at: it.snippet.publishedAt,
-    }));
+    })).filter((r: any) => r.youtube_id);
+
+    // Blocklist: compilations, award shows, full albums, playlists, mixes — not single tracks.
+    const BLOCK = [
+      "awards", "nominees", "billboard", "full album", "álbum completo", "album completo",
+      "playlist", "mix", "compilation", "compilación", "mega mix", "megamix",
+      "top 100", "top 50", "top 40", "top 20", "top 10", "best of", "lo mejor de",
+      "1 hour", "2 hours", "live stream", "tribute", "homenaje",
+    ];
+    const isBlocked = (r: any) => {
+      const hay = `${r.title} ${r.channel}`.toLowerCase();
+      return BLOCK.some((w) => hay.includes(w));
+    };
+    // Drop blocked entries from the first 3 positions; keep the rest as-is at the tail
+    // so the next closest single-track match floats to the top.
+    const head = raw.slice(0, 3);
+    const tail = raw.slice(3);
+    const cleanHead = head.filter((r: any) => !isBlocked(r));
+    const skippedHead = head.filter((r: any) => isBlocked(r));
+    const results = [...cleanHead, ...tail, ...skippedHead];
+
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
