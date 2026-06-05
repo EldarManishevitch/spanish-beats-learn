@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { prefetchSong, prefetchByYoutubeId, registerGeneration } from "@/lib/songCache";
+import { parseArtistTitle } from "@/lib/cleanTitle";
 
 type Result = { youtube_id: string; title: string; channel: string; thumbnail: string };
 
@@ -52,9 +53,7 @@ export const SongSearch = () => {
       }
 
       // Optimistic path: navigate to pending page, generate in background.
-      const [titleGuess, artistGuess] = r.title.includes(" - ")
-        ? r.title.split(" - ").map((s) => s.trim())
-        : [r.title, r.channel];
+      const { artist: artistGuess, title: titleGuess } = parseArtistTitle(r.title, r.channel);
       prefetchByYoutubeId(r.youtube_id, {
         title: titleGuess || r.title,
         artist: artistGuess || r.channel,
