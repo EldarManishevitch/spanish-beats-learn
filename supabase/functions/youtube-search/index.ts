@@ -6,6 +6,45 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Title cleaner (kept in sync with src/lib/cleanTitle.ts) ---
+const JUNK_KEYWORDS = [
+  "official", "audio", "video", "lyric", "lyrics", "lyric video", "music video",
+  "mv", "m/v", "visualizer", "visualiser", "hd", "hq", "4k", "8k",
+  "remaster", "remastered", "anniversary", "edit", "extended", "version",
+  "color coded", "color-coded", "sub español", "sub espanol", "sub eng",
+  "english", "letra", "vevo", "topic", "explicit",
+];
+const FEAT_RE = /\s*[\(\[\{]\s*((?:feat\.?|ft\.?|featuring|con|with)\s+[^)\]\}]+)[\)\]\}]/i;
+const stripEmoji = (s: string) =>
+  s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "");
+const trimSeparators = (s: string) =>
+  s.replace(/^[\s\-–—|:•·]+|[\s\-–—|:•·]+$/g, "").replace(/\s+/g, " ").trim();
+
+function cleanYoutubeText(raw: string): string {
+  if (!raw) return "";
+  let s = stripEmoji(raw);
+  let feat = "";
+  const featMatch = s.match(FEAT_RE);
+  if (featMatch) {
+    feat = ` ${featMatch[1].replace(/\s+/g, " ").trim()}`;
+    s = s.replace(FEAT_RE, " ");
+  }
+  s = s.replace(/[\(\[\{]([^\)\]\}]*)[\)\]\}]/g, (full, inner) => {
+    const low = String(inner).toLowerCase();
+    if (JUNK_KEYWORDS.some((k) => low.includes(k))) return " ";
+    if (/^\s*(19|20)\d{2}\s*$/.test(inner)) return " ";
+    return full;
+  });
+  s = s.replace(/\s*[|•·]\s*[^|•·]*$/g, " ");
+  s = s.replace(/\s*[-–—]\s*(?:Topic|VEVO|Official(?:\s+(?:Audio|Video|Music))?|Music|Records)\s*$/i, "");
+  s = s.replace(/\s*-\s*Topic\s*$/i, "").replace(/VEVO\s*$/i, "");
+  s = s.replace(/\s+(?:HD|HQ|4K|8K|Official|Audio|Video|Visualizer|Lyrics?)\s*$/gi, "");
+  s = trimSeparators(s);
+  if (feat && !/feat\.?|ft\.?|featuring|with|con/i.test(s)) s = `${s}${feat}`;
+  return trimSeparators(s);
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
