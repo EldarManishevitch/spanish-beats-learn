@@ -237,20 +237,21 @@ function simplifyForSearch(s: string): string {
 }
 
 function sanitizeArtist(artist: string): string {
-  return artist
+  const pre = artist
     .replace(/genius\s+(english|spanish|romanizations?|translations?)/gi, "")
-    .replace(/\(.*?\)/g, "")
     .replace(/\s+/g, " ")
     .trim();
+  return cleanYoutubeTitle(pre);
 }
 
 function sanitizeTitle(title: string): string {
-  return title
+  const pre = title
     .replace(/\((?:english|spanish)\s+translation\)/gi, "")
     .replace(/\[(?:english|spanish)\s+translation\]/gi, "")
     .replace(/-\s*(?:english|spanish)\s+translation/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+  return cleanYoutubeTitle(pre);
 }
 
 function splitTitleArtist(cleaned: string): { title: string; artist: string } | null {
