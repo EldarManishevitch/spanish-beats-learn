@@ -72,7 +72,7 @@ const Roleplay = () => {
     if (!scenario) return;
     if (turn + 1 >= scenario.dialogue_steps.length) {
       setCompleted(true);
-      await addXp(50);
+      await addXp("roleplay_completed", new Date().toISOString().slice(0, 10));
       const r = await recompute();
       if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
       else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });

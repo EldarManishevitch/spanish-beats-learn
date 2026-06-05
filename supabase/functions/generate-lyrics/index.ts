@@ -429,6 +429,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "youtube_id and title are required" }, 400);
     }
 
+    // Validate youtube_id strictly — 11 chars, URL-safe base64 alphabet.
+    if (typeof youtube_id !== "string" || !/^[A-Za-z0-9_-]{11}$/.test(youtube_id)) {
+      return jsonResponse({ error: "invalid youtube_id" }, 400);
+    }
+
+    // Never trust a client-supplied thumbnail URL — it ends up in a globally
+    // readable table. Reconstruct it deterministically from the validated id.
+    const safeThumb = `https://i.ytimg.com/vi/${youtube_id}/hqdefault.jpg`;
+
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     const { data: existing, error: existingError } = await supabase
@@ -636,7 +645,7 @@ ${rawLyrics}`;
         genre: parsed.genre || "pop latino",
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
-        album_art_url: thumbnail ?? null,
+        album_art_url: safeThumb,
       })
       .select("id")
       .single();

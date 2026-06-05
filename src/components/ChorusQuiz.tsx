@@ -120,7 +120,7 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
         is_mastered: mastered || existing.is_mastered,
         last_reviewed: now,
       }).eq("id", existing.id);
-      if (mastered && !existing.is_mastered) await addXp(25);
+      if (mastered && !existing.is_mastered) await addXp("word_mastered", word);
     } else {
       await supabase.from("user_vocab_stats").insert({
         user_id: user.id, word,
@@ -139,7 +139,7 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
       setScore((s) => s + 1);
       await clearFlag(q.missing);
       await updateVocabStat(q.missing, true);
-      await addXp(5);
+      await addXp("quiz_correct", `${songId}:${q.line.id}`);
     } else {
       await flagWrong(q.missing);
       await updateVocabStat(q.missing, false);
