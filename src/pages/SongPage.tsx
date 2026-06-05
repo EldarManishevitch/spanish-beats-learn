@@ -77,9 +77,7 @@ const SongPage = () => {
     loadVocab();
   }, [id, user]);
 
-  useEffect(() => {
-    if (user && song) { touchStreak(); }
-  }, [user, song?.id]);
+  // Streak is intentionally NOT updated here. It is only touched on quiz completion.
 
   if (!song) return <SongSkeleton />;
 
