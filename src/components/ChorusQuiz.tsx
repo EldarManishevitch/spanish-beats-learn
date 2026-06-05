@@ -15,7 +15,7 @@ type Q = { line: Line; missing: string; options: string[]; words: string[]; miss
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
 const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 
-export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] }) => {
+export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: string; lines: Line[]; songTitle?: string; songArtist?: string }) => {
   const { user } = useAuth();
   const { addXp, recompute, progress } = useProgress();
   const [seed, setSeed] = useState(0);
@@ -27,14 +27,51 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
 
   const questions = useMemo<Q[]>(() => {
     void seed;
-    const allWords = Array.from(new Set(lines.flatMap((l) => l.spanish_text.split(/\s+/).map(cleanWord)).filter((w) => w.length > 3)));
-    const eligible = lines.filter((l) => l.spanish_text.split(/\s+/).some((w) => cleanWord(w).length > 3));
-    if (!eligible.length) return [];
-    const count = Math.min(eligible.length, Math.floor(Math.random() * 4) + 5); // 5-8
-    const picked = shuffle(eligible).slice(0, count);
+    // Blocklist: words from song title and artist name should never be used.
+    const metaWords = new Set(
+      [songTitle ?? "", songArtist ?? ""]
+        .join(" ")
+        .split(/\s+/)
+        .map(cleanWord)
+        .filter(Boolean),
+    );
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+    const titleNorm = normalize(songTitle ?? "");
+    const artistNorm = normalize(songArtist ?? "");
+
+    const isValidLyric = (text: string) => {
+      const t = text.trim();
+      if (!t) return false;
+      // Reject section headers like [Chorus], (Intro), {Verse 1}
+      if (/^[\[\(\{][^\]\)\}]*[\]\)\}]\s*:?\s*$/.test(t)) return false;
+      const n = normalize(t);
+      // Reject lines that are essentially the title or artist
+      if (titleNorm && (n === titleNorm || (n.includes(titleNorm) && n.length <= titleNorm.length + 4))) return false;
+      if (artistNorm && (n === artistNorm || (n.includes(artistNorm) && n.length <= artistNorm.length + 4))) return false;
+      const words = t.split(/\s+/);
+      if (words.length < 3) return false;
+      // Must contain at least one real >3-char word that isn't metadata
+      if (!words.some((w) => cleanWord(w).length > 3 && !metaWords.has(cleanWord(w)))) return false;
+      return true;
+    };
+
+    const validLines = lines.filter((l) => isValidLyric(l.spanish_text));
+    const allWords = Array.from(
+      new Set(
+        validLines
+          .flatMap((l) => l.spanish_text.split(/\s+/).map(cleanWord))
+          .filter((w) => w.length > 3 && !metaWords.has(w)),
+      ),
+    );
+    if (!validLines.length || allWords.length < 4) return [];
+    const count = Math.min(validLines.length, Math.floor(Math.random() * 4) + 5); // 5-8
+    const picked = shuffle(validLines).slice(0, count);
     return picked.map((line) => {
       const words = line.spanish_text.split(/\s+/);
-      const candidates = words.map((w, i) => ({ w, i, c: cleanWord(w) })).filter((x) => x.c.length > 3);
+      const candidates = words
+        .map((w, i) => ({ w, i, c: cleanWord(w) }))
+        .filter((x) => x.c.length > 3 && !metaWords.has(x.c));
       const pick = candidates[Math.floor(Math.random() * candidates.length)] ?? { w: words[0], i: 0, c: cleanWord(words[0]) };
       const distractors = shuffle(allWords.filter((w) => w !== pick.c)).slice(0, 3);
       return {
@@ -45,7 +82,7 @@ export const ChorusQuiz = ({ songId, lines }: { songId: string; lines: Line[] })
         missingIdx: pick.i,
       };
     });
-  }, [lines, seed]);
+  }, [lines, seed, songTitle, songArtist]);
 
   const q = questions[idx];
 
