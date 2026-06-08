@@ -67,7 +67,7 @@ const Dashboard = () => {
       .from("songs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(36);
+      .limit(120);
     setSongs(data ?? []);
   };
 
