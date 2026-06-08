@@ -234,8 +234,17 @@ const Dashboard = () => {
       {(() => {
         const userLevel = progress?.cefr_level ?? "A1";
         const userRank = CEFR_RANK[userLevel] ?? 1;
-        const recommended = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) <= userRank);
-        const challenging = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
+        const atLevel = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) <= userRank);
+        const above = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
+        const seed = `${user?.id ?? "guest"}:${userLevel}:${todayKey()}`;
+        const shuffledAt = seededShuffle(atLevel, seed);
+        const shuffledAbove = seededShuffle(above, seed + ":above");
+        const recommended = shuffledAt.slice(0, 6);
+        // Fill with challenging songs if the user's level pool is small.
+        const fillers = recommended.length < 6 ? shuffledAbove.slice(0, 6 - recommended.length) : [];
+        const recommendedFinal = [...recommended, ...fillers];
+        const fillerIds = new Set(fillers.map((s) => s.id));
+        const challenging = shuffledAbove.filter((s) => !fillerIds.has(s.id));
 
         const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
           const level = songCefr(s);
