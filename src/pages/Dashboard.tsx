@@ -5,12 +5,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Sparkles, Zap, Music2 } from "lucide-react";
+import { Play, Sparkles, Music2, Flame, Rocket } from "lucide-react";
 import { SongSearch } from "@/components/SongSearch";
 import { SiteTour } from "@/components/SiteTour";
 import { prefetchSong } from "@/lib/songCache";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProgress } from "@/hooks/useProgress";
+
+// Map legacy difficulty labels to a CEFR rank so we can compare against the
+// user's profile.cefr_level. Higher rank = harder material.
+const DIFFICULTY_TO_CEFR: Record<string, "A1" | "A2" | "B1" | "B2"> = {
+  beginner: "A1",
+  intermediate: "A2",
+  advanced: "B1",
+  expert: "B2",
+  a1: "A1", a2: "A2", b1: "B1", b2: "B2",
+};
+const CEFR_RANK: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4 };
+const songCefr = (s: { difficulty?: string | null }) =>
+  DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = {
