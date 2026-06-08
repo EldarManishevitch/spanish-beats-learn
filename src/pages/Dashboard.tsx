@@ -283,15 +283,15 @@ const Dashboard = () => {
 
         return (
           <>
-            {recommended.length > 0 && (
+            {recommendedFinal.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="h-5 w-5 text-primary" />
                   <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">Songs tuned for <span className="font-semibold text-primary">{userLevel}</span> learners — built to be sung today.</p>
+                <p className="text-sm text-muted-foreground mb-4">6 songs picked for you today · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {recommended.map((s) => <SongCard key={s.id} s={s} />)}
+                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
                 </div>
               </section>
             )}
