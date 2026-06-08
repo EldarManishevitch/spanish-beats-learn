@@ -120,7 +120,7 @@ const SongPage = () => {
         </div>
       </header>
 
-      <Tabs defaultValue="lyrics" className="space-y-6" onValueChange={(v) => v === "vocab" && loadVocab()}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === "vocab") loadVocab(); }} className="space-y-6">
         <TabsList className="glass">
           <TabsTrigger value="lyrics" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Music className="h-4 w-4 mr-2" /> Lyrics
