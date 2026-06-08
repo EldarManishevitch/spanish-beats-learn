@@ -234,13 +234,6 @@ export const SectionedSongPlayer = ({
           </div>
           {active && (
             <div className="mt-3 flex flex-wrap gap-2 items-center">
-              <Button
-                onClick={() => playSection(active)}
-                disabled={!videoReady}
-                className="bg-primary hover:bg-primary/90"
-              >
-                ▶ Play {active.label}
-              </Button>
               {onPracticeQuiz && (
                 <Button
                   onClick={() => onPracticeQuiz(active.id)}
