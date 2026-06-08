@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,27 +58,38 @@ type Song = { id: string; title: string; artist: string; genre: string; album_ar
 // Defining it inline reset internal state on every parent render and made the
 // failed-image fallback flicker / appear unclickable mid-rerender.
 const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
+  const navigate = useNavigate();
   const level = (DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2") as string;
-  // Build a deterministic fallback chain: provided art → YouTube maxres →
-  // YouTube hq → YouTube mq → gradient placeholder.
+  const path = `/song/${s.id}`;
+  const isPlaceholderUrl = (url: string | null) =>
+    !url || /(^|\/)(default|sddefault|hqdefault|mqdefault|maxresdefault|0)\.jpg(\?|$)/i.test(url) || /placeholder|no[_-]?thumbnail|grey|gray/i.test(url);
+  // Prefer direct YouTube thumbnails, skip stored YouTube placeholder URLs, then use the neon CSS fallback.
   const candidates = [
-    s.album_art_url,
+    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/0.jpg` : null,
     s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/maxresdefault.jpg` : null,
     s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/hqdefault.jpg` : null,
     s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/mqdefault.jpg` : null,
+    isPlaceholderUrl(s.album_art_url) ? null : s.album_art_url,
   ].filter(Boolean) as string[];
   const [idx, setIdx] = useState(0);
   const current = candidates[idx];
+  const goToSong = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    navigate(path);
+  };
 
   return (
     <Link
-      to={`/song/${s.id}`}
-      className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
+      to={path}
+      className="group relative z-10 block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl pointer-events-auto"
+      style={{ cursor: "pointer", pointerEvents: "auto" }}
+      onClick={goToSong}
       onMouseEnter={() => prefetchSong(s.id)}
       onFocus={() => prefetchSong(s.id)}
       onTouchStart={() => prefetchSong(s.id)}
     >
-      <Card className={`glass overflow-hidden transition-all duration-300 hover:-translate-y-1 ${challenge ? "hover:shadow-neon-yellow ring-1 ring-accent/40" : "hover:shadow-neon-pink"}`}>
+      <Card className={`glass overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 ${challenge ? "hover:shadow-neon-yellow ring-1 ring-accent/40" : "hover:shadow-neon-pink"}`}>
         <div className="relative aspect-video overflow-hidden pointer-events-none">
           {current ? (
             <img
@@ -86,14 +97,19 @@ const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
               alt={s.title}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               loading="lazy"
+              onLoad={(event) => {
+                const img = event.currentTarget;
+                if ((img.naturalWidth <= 130 || img.naturalHeight <= 100) && idx < candidates.length - 1) setIdx((i) => i + 1);
+              }}
               onError={() => setIdx((i) => i + 1)}
             />
           ) : (
-            <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-primary via-accent to-primary/40">
-              <div className="absolute inset-0 opacity-40 mix-blend-overlay bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent))_0%,transparent_55%),radial-gradient(circle_at_80%_70%,hsl(var(--primary))_0%,transparent_55%)]" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-                <span className="text-4xl drop-shadow-[0_0_18px_hsl(var(--primary))]" aria-hidden>🎵</span>
-                <span className="text-[11px] uppercase tracking-[0.25em] font-bold text-background/95">Ritmo Studio</span>
+            <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-secondary via-primary to-accent">
+              <div className="absolute inset-0 opacity-45 mix-blend-overlay bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent))_0%,transparent_55%),radial-gradient(circle_at_80%_70%,hsl(var(--primary))_0%,transparent_55%)]" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-5 text-center">
+                <span className="text-5xl drop-shadow-[0_0_18px_hsl(var(--primary))]" aria-hidden>🎵</span>
+                <span className="text-base font-black text-primary-foreground line-clamp-2 drop-shadow">{s.title}</span>
+                <span className="text-[11px] uppercase tracking-wider font-bold text-primary-foreground/85 line-clamp-1">{s.artist}</span>
               </div>
             </div>
           )}
