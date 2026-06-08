@@ -272,11 +272,11 @@ export const SectionedSongPlayer = ({
             </label>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
               return (
-                <div key={line.id} className="rounded-xl p-3">
+                <div key={line.id}>
                   <p className="text-base md:text-lg font-medium leading-relaxed">
                     {words.map((w, j) => (
                       <span key={j}>
@@ -289,11 +289,8 @@ export const SectionedSongPlayer = ({
                       </span>
                     ))}
                   </p>
-                  {line.pronunciation && (
-                    <p className="text-sm text-secondary/80 mt-1 italic">{line.pronunciation}</p>
-                  )}
                   {showEnglish && line.english_translation && (
-                    <p className="text-sm text-muted-foreground mt-1 italic">{line.english_translation}</p>
+                    <p className="text-sm text-muted-foreground italic">{line.english_translation}</p>
                   )}
                 </div>
               );
