@@ -160,7 +160,7 @@ export const SectionedSongPlayer = ({
     if (user) {
       // ref_id ties the XP to this specific song + section so the same
       // reward can't be farmed by tapping the button repeatedly.
-      await addXp("section_completed" as any, `${songId}:${s.id}`);
+      await addXp("section_completed", `${songId}:${s.id}`);
     } else {
       toast.success("+10 XP");
     }
