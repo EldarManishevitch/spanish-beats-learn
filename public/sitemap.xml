@@ -40,6 +40,11 @@
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://spanish-beats-learn.lovable.app/settings</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
   <url><loc>https://spanish-beats-learn.lovable.app/song/34e8b26d-4a0f-44e8-92ce-449d268d0076</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://spanish-beats-learn.lovable.app/song/52ef7259-606a-4000-9bab-b4d95a81a236</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://spanish-beats-learn.lovable.app/song/638537aa-fd0e-4155-a8bb-91edcab315a4</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
