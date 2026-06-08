@@ -135,7 +135,7 @@ const Landing = () => {
   return (
     <>
       <Helmet>
-        <title>Ritmo — Learn Spanish through Bad Bunny, Romeo Santos & more</title>
+        <title>Ritmo — Learn Spanish through Bad Bunny & Latin music</title>
         <meta name="description" content="Hit play on a real Bad Bunny chorus. Tap any word for instant pronunciation and English translation. Free 10-second preview, no signup required." />
         <link rel="canonical" href="/" />
         <meta property="og:title" content="Ritmo — Learn Spanish through Latin music" />

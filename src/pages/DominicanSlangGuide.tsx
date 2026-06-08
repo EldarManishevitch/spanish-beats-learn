@@ -225,7 +225,7 @@ const DominicanSlangGuide = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Dominican Slang in Bachata Lyrics: A Listener's Guide | Ritmo</title>
+        <title>Dominican Slang in Bachata: A Listener's Guide | Ritmo</title>
         <meta name="description" content="Searchable guide to Dominican Spanish slang in Bachata lyrics by Romeo Santos, Aventura, and Juan Luis Guerra — meanings, English equivalents, and song examples." />
         <link rel="canonical" href="https://spanish-beats-learn.lovable.app/dominican-slang-guide" />
         <meta property="og:title" content="Dominican Slang in Bachata Lyrics: A Listener's Guide" />
