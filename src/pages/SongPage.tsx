@@ -135,7 +135,12 @@ const SongPage = () => {
 
         <TabsContent value="lyrics">
           <h2 className="sr-only">Lyrics with translation</h2>
-          <SectionedSongPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
+          <SectionedSongPlayer
+            youtubeId={song.youtube_id}
+            lines={lines}
+            songId={song.id}
+            onPracticeQuiz={(sectionId) => { setQuizSection(sectionId); setTab("quiz"); }}
+          />
         </TabsContent>
 
         <TabsContent value="vocab">
