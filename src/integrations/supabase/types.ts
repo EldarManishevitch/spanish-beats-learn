@@ -130,6 +130,7 @@ export type Database = {
           fav_genres: string[]
           id: string
           last_practice_date: string | null
+          last_sent_variant_id: number | null
           learning_goal: string | null
           learning_level: string | null
           longest_streak: number
@@ -150,6 +151,7 @@ export type Database = {
           fav_genres?: string[]
           id: string
           last_practice_date?: string | null
+          last_sent_variant_id?: number | null
           learning_goal?: string | null
           learning_level?: string | null
           longest_streak?: number
@@ -170,6 +172,7 @@ export type Database = {
           fav_genres?: string[]
           id?: string
           last_practice_date?: string | null
+          last_sent_variant_id?: number | null
           learning_goal?: string | null
           learning_level?: string | null
           longest_streak?: number
