@@ -26,6 +26,32 @@ const CEFR_RANK: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4 };
 const songCefr = (s: { difficulty?: string | null }) =>
   DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2";
 
+// Seeded RNG so today's pick is stable across reloads but rotates daily.
+const hashSeed = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+};
+const mulberry32 = (seed: number) => () => {
+  let t = (seed += 0x6D2B79F5);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+const seededShuffle = <T,>(arr: T[], seed: string): T[] => {
+  const rand = mulberry32(hashSeed(seed));
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = {
   term: string;
@@ -67,7 +93,7 @@ const Dashboard = () => {
       .from("songs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(36);
+      .limit(120);
     setSongs(data ?? []);
   };
 
@@ -208,8 +234,17 @@ const Dashboard = () => {
       {(() => {
         const userLevel = progress?.cefr_level ?? "A1";
         const userRank = CEFR_RANK[userLevel] ?? 1;
-        const recommended = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) <= userRank);
-        const challenging = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
+        const atLevel = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) <= userRank);
+        const above = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
+        const seed = `${user?.id ?? "guest"}:${userLevel}:${todayKey()}`;
+        const shuffledAt = seededShuffle(atLevel, seed);
+        const shuffledAbove = seededShuffle(above, seed + ":above");
+        const recommended = shuffledAt.slice(0, 6);
+        // Fill with challenging songs if the user's level pool is small.
+        const fillers = recommended.length < 6 ? shuffledAbove.slice(0, 6 - recommended.length) : [];
+        const recommendedFinal = [...recommended, ...fillers];
+        const fillerIds = new Set(fillers.map((s) => s.id));
+        const challenging = shuffledAbove.filter((s) => !fillerIds.has(s.id));
 
         const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
           const level = songCefr(s);
@@ -248,15 +283,15 @@ const Dashboard = () => {
 
         return (
           <>
-            {recommended.length > 0 && (
+            {recommendedFinal.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="h-5 w-5 text-primary" />
                   <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">Songs tuned for <span className="font-semibold text-primary">{userLevel}</span> learners — built to be sung today.</p>
+                <p className="text-sm text-muted-foreground mb-4">6 songs picked for you today · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {recommended.map((s) => <SongCard key={s.id} s={s} />)}
+                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
                 </div>
               </section>
             )}
@@ -274,7 +309,7 @@ const Dashboard = () => {
               </section>
             )}
 
-            {recommended.length === 0 && challenging.length === 0 && (
+            {recommendedFinal.length === 0 && challenging.length === 0 && (
               <p className="text-muted-foreground">No songs yet — search above to add the first one.</p>
             )}
           </>
