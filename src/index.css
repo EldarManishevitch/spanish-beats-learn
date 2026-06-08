@@ -26,7 +26,7 @@
     --secondary-foreground: 0 0% 100%;
 
     --muted: 36 20% 93%;
-    --muted-foreground: 20 6% 40%;
+    --muted-foreground: 20 8% 32%;  /* darker for WCAG AA on warm off-white bg */
 
     --accent: 209 34% 25%;             /* deep blue accent */
     --accent-foreground: 0 0% 100%;
