@@ -434,6 +434,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "invalid youtube_id" }, 400);
     }
 
+    // Length caps prevent token/cost abuse via direct edge function calls.
+    if (typeof title !== "string" || title.length > 300) {
+      return jsonResponse({ error: "invalid title" }, 400);
+    }
+    if (channel != null && (typeof channel !== "string" || channel.length > 200)) {
+      return jsonResponse({ error: "invalid channel" }, 400);
+    }
+
     // Never trust a client-supplied thumbnail URL — it ends up in a globally
     // readable table. Reconstruct it deterministically from the validated id.
     const safeThumb = `https://i.ytimg.com/vi/${youtube_id}/hqdefault.jpg`;
