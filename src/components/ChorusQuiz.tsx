@@ -98,7 +98,16 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist, sectionId = "
         missingIdx: pick.i,
       };
     });
-  }, [lines, seed, songTitle, songArtist]);
+  }, [lines, seed, songTitle, songArtist, sectionId]);
+
+  // Reset quiz state whenever the targeted section changes so the user starts
+  // fresh on the section they just jumped in from.
+  useEffect(() => {
+    setIdx(0);
+    setAnswer(null);
+    setScore(0);
+    setDone(false);
+  }, [sectionId]);
 
   const q = questions[idx];
 
