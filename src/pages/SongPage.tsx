@@ -40,6 +40,8 @@ const SongSkeleton = () => (
   </AppLayout>
 );
 
+type QuizSection = "chorus" | "verse_1" | "verse_2" | "full";
+
 const SongPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -48,6 +50,8 @@ const SongPage = () => {
   const [lines, setLines] = useState<Line[]>(cached?.lines ?? []);
   const [vocab, setVocab] = useState<Vocab[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
+  const [tab, setTab] = useState<string>("lyrics");
+  const [quizSection, setQuizSection] = useState<QuizSection>("full");
 
   const loadVocab = async () => {
     if (!user || !id) return;
