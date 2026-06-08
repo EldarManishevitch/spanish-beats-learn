@@ -19,15 +19,20 @@ type Line = {
 };
 
 type Section = {
-  id: "chorus" | "verse_1" | "verse_2";
+  id: "chorus" | "verse_1" | "verse_2" | "full";
   label: string;
   lines: Line[];
 };
 
+type YouTubePlayer = {
+  destroy?: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+};
+
 declare global {
   interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: any;
     __ytApiLoading?: boolean;
     __ytApiReady?: boolean;
     __ytReadyCallbacks?: Array<() => void>;
@@ -93,15 +98,20 @@ export const SectionedSongPlayer = ({
 }) => {
   const { user } = useAuth();
   const { addXp } = useProgress();
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
   const sectionEndTimer = useRef<number | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
 
   const sections = useMemo(() => splitSections(lines), [lines]);
+  const fullSong = useMemo<Section | null>(() => {
+    const sorted = [...lines].sort((a, b) => a.line_index - b.line_index);
+    return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
+  }, [lines]);
+  const tabSections = useMemo(() => fullSong ? [...sections, fullSong] : sections, [sections, fullSong]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const active = sections.find((s) => s.id === activeId) ?? sections[0] ?? null;
+  const active = tabSections.find((s) => s.id === activeId) ?? sections[0] ?? fullSong ?? null;
 
   // Per-session local memory of which sections have been "completed" so the
   // user gets the dopamine animation once per visit per section.
@@ -172,7 +182,7 @@ export const SectionedSongPlayer = ({
     setActiveId(id);
   };
 
-  if (!sections.length) {
+  if (!tabSections.length) {
     return (
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
@@ -192,7 +202,7 @@ export const SectionedSongPlayer = ({
     <div className="space-y-5">
       {/* Section tabs */}
       <div role="tablist" aria-label="Song sections" className="flex flex-wrap gap-2">
-        {sections.map((s) => {
+        {tabSections.map((s) => {
           const isActive = active?.id === s.id;
           const isDone = completed[s.id];
           return (
@@ -207,7 +217,7 @@ export const SectionedSongPlayer = ({
                   : "bg-card border-border hover:border-primary/40"
               }`}
             >
-              {s.id === "chorus" ? <Sparkles className="h-3.5 w-3.5" /> : <Music className="h-3.5 w-3.5" />}
+              {s.id === "chorus" || s.id === "full" ? <Sparkles className="h-3.5 w-3.5" /> : <Music className="h-3.5 w-3.5" />}
               {s.label}
               {isDone && (
                 <span className="ml-1 h-4 w-4 rounded-full bg-accent flex items-center justify-center">
