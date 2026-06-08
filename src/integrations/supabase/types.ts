@@ -127,11 +127,16 @@ export type Database = {
           created_at: string
           current_streak: number
           display_name: string | null
+          fav_genres: string[]
           id: string
           last_practice_date: string | null
+          learning_goal: string | null
           learning_level: string | null
           longest_streak: number
           mastered_count: number
+          notifications_enabled: boolean
+          notifications_time: string
+          onboarding_completed: boolean
           total_xp: number
           unlocked_conversations: boolean
           updated_at: string
@@ -142,11 +147,16 @@ export type Database = {
           created_at?: string
           current_streak?: number
           display_name?: string | null
+          fav_genres?: string[]
           id: string
           last_practice_date?: string | null
+          learning_goal?: string | null
           learning_level?: string | null
           longest_streak?: number
           mastered_count?: number
+          notifications_enabled?: boolean
+          notifications_time?: string
+          onboarding_completed?: boolean
           total_xp?: number
           unlocked_conversations?: boolean
           updated_at?: string
@@ -157,11 +167,16 @@ export type Database = {
           created_at?: string
           current_streak?: number
           display_name?: string | null
+          fav_genres?: string[]
           id?: string
           last_practice_date?: string | null
+          learning_goal?: string | null
           learning_level?: string | null
           longest_streak?: number
           mastered_count?: number
+          notifications_enabled?: boolean
+          notifications_time?: string
+          onboarding_completed?: boolean
           total_xp?: number
           unlocked_conversations?: boolean
           updated_at?: string
