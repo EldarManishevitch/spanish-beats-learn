@@ -9,7 +9,8 @@ import { UnlockCelebration } from "@/components/UnlockCelebration";
 import { touchStreak } from "@/lib/streak";
 import { toast } from "sonner";
 
-type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
+type Line = { id: string; line_index: number; spanish_text: string; english_translation: string | null; is_chorus: boolean };
+type SectionId = "chorus" | "verse_1" | "verse_2" | "full";
 type Q = { line: Line; missing: string; options: string[]; words: string[]; missingIdx: number };
 
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
