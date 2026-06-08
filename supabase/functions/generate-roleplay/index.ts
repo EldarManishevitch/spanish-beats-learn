@@ -29,6 +29,11 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: corsHeaders });
 
     const { scenario_hint } = await req.json().catch(() => ({}));
+    if (scenario_hint != null && (typeof scenario_hint !== "string" || scenario_hint.length > 200)) {
+      return new Response(JSON.stringify({ error: "invalid scenario_hint" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: profile } = await supabase
       .from("profiles").select("cefr_level, unlocked_conversations").eq("id", user.id).maybeSingle();
