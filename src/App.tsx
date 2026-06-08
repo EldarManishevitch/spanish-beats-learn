@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound.tsx";
 import ReggaetonSlangGuide from "./pages/ReggaetonSlangGuide";
 import DominicanSlangGuide from "./pages/DominicanSlangGuide";
 import HowToLearnSpanishWithMusic from "./pages/HowToLearnSpanishWithMusic";
+import BestReggaetonSongsForSpanishLearners from "./pages/BestReggaetonSongsForSpanishLearners";
 
 const queryClient = new QueryClient();
 
