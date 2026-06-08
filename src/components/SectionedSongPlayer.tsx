@@ -4,8 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Loader2, Check, Sparkles, Music } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProgress } from "@/hooks/useProgress";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 type Line = {
   id: string;
@@ -66,13 +65,6 @@ const NeonLoader = ({ label }: { label: string }) => (
   </div>
 );
 
-/**
- * Splits a song into 3 micro-loop sections:
- *   - Chorus = lines flagged is_chorus
- *   - Verse 1 = first half of non-chorus lines (ordered by line_index)
- *   - Verse 2 = remaining non-chorus lines
- * Empty sections are dropped.
- */
 const splitSections = (lines: Line[]): Section[] => {
   const sorted = [...lines].sort((a, b) => a.line_index - b.line_index);
   const chorus = sorted.filter((l) => l.is_chorus);
@@ -97,7 +89,6 @@ export const SectionedSongPlayer = ({
   songId: string;
 }) => {
   const { user } = useAuth();
-  const { addXp } = useProgress();
   const playerRef = useRef<YouTubePlayer | null>(null);
   const sectionEndTimer = useRef<number | null>(null);
   const [videoReady, setVideoReady] = useState(false);
@@ -113,10 +104,10 @@ export const SectionedSongPlayer = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = tabSections.find((s) => s.id === activeId) ?? sections[0] ?? fullSong ?? null;
 
-  // Per-session local memory of which sections have been "completed" so the
-  // user gets the dopamine animation once per visit per section.
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [celebrating, setCelebrating] = useState<string | null>(null);
+  // Completion is derived strictly from the quiz_attempts table — users cannot
+  // mark a section complete manually. A passing quiz attempt for this song
+  // (score === total) flags every section as complete in the UI.
+  const [quizPassed, setQuizPassed] = useState(false);
 
   useEffect(() => { setHintActive(true); }, [songId]);
 
@@ -124,7 +115,23 @@ export const SectionedSongPlayer = ({
     if (sections.length && !activeId) setActiveId(sections[0].id);
   }, [sections, activeId]);
 
-  // Single YouTube player, re-built only on song change.
+  useEffect(() => {
+    let cancelled = false;
+    const loadStatus = async () => {
+      if (!user || !songId) { setQuizPassed(false); return; }
+      const { data } = await supabase
+        .from("quiz_attempts")
+        .select("score,total")
+        .eq("user_id", user.id)
+        .eq("song_id", songId);
+      if (cancelled) return;
+      const passed = (data ?? []).some((a) => a.total > 0 && a.score >= a.total);
+      setQuizPassed(passed);
+    };
+    loadStatus();
+    return () => { cancelled = true; };
+  }, [user, songId]);
+
   useEffect(() => {
     let cancelled = false;
     setVideoReady(false);
@@ -162,20 +169,6 @@ export const SectionedSongPlayer = ({
     }
   };
 
-  const completeSection = async (s: Section) => {
-    if (completed[s.id]) return;
-    setCompleted((c) => ({ ...c, [s.id]: true }));
-    setCelebrating(s.id);
-    window.setTimeout(() => setCelebrating(null), 1600);
-    if (user) {
-      // ref_id ties the XP to this specific song + section so the same
-      // reward can't be farmed by tapping the button repeatedly.
-      await addXp("section_completed", `${songId}:${s.id}`);
-    } else {
-      toast.success("+10 XP");
-    }
-  };
-
   const switchTo = (id: string) => {
     if (sectionEndTimer.current) window.clearTimeout(sectionEndTimer.current);
     try { playerRef.current?.pauseVideo(); } catch { /* ignore */ }
@@ -200,11 +193,10 @@ export const SectionedSongPlayer = ({
 
   return (
     <div className="space-y-5">
-      {/* Section tabs */}
       <div role="tablist" aria-label="Song sections" className="flex flex-wrap gap-2">
         {tabSections.map((s) => {
           const isActive = active?.id === s.id;
-          const isDone = completed[s.id];
+          const isDone = quizPassed;
           return (
             <button
               key={s.id}
@@ -220,7 +212,10 @@ export const SectionedSongPlayer = ({
               {s.id === "chorus" || s.id === "full" ? <Sparkles className="h-3.5 w-3.5" /> : <Music className="h-3.5 w-3.5" />}
               {s.label}
               {isDone && (
-                <span className="ml-1 h-4 w-4 rounded-full bg-accent flex items-center justify-center">
+                <span
+                  className="ml-1 h-4 w-4 rounded-full bg-accent flex items-center justify-center"
+                  title="Quiz completed"
+                >
                   <Check className="h-2.5 w-2.5 text-accent-foreground" />
                 </span>
               )}
@@ -230,14 +225,13 @@ export const SectionedSongPlayer = ({
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
-        {/* Player */}
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
             {!videoReady && <NeonLoader label="Loading video…" />}
             <div id="yt-player" className="w-full h-full" />
           </div>
           {active && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
               <Button
                 onClick={() => playSection(active)}
                 disabled={!videoReady}
@@ -245,22 +239,13 @@ export const SectionedSongPlayer = ({
               >
                 ▶ Play {active.label}
               </Button>
-              <Button
-                onClick={() => completeSection(active)}
-                disabled={completed[active.id]}
-                variant="outline"
-                className={completed[active.id] ? "" : "border-accent text-accent hover:bg-accent hover:text-accent-foreground"}
-              >
-                {completed[active.id] ? "✓ Section complete" : "Mark complete · +10 XP"}
-              </Button>
-              <p className="text-xs text-muted-foreground self-center ml-1">
-                A 2–3 min mini-session. Listen, tap unfamiliar words, then claim your XP.
+              <p className="text-xs text-muted-foreground ml-1">
+                Listen, tap any unfamiliar word, then ace the quiz to mark this song complete.
               </p>
             </div>
           )}
         </div>
 
-        {/* Active section lyrics */}
         <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border sticky top-0 bg-white z-[1]">
             <span className="text-sm font-semibold">{active?.label}</span>
@@ -275,21 +260,6 @@ export const SectionedSongPlayer = ({
               />
             </label>
           </div>
-
-          {celebrating === active?.id && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/85 backdrop-blur-sm rounded-2xl animate-fade-in">
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-accent/30 blur-2xl animate-pulse" />
-                  <div className="relative h-20 w-20 rounded-full bg-gradient-neon animate-gradient flex items-center justify-center shadow-soft-lg animate-scale-in">
-                    <Check className="h-10 w-10 text-primary-foreground" strokeWidth={3} />
-                  </div>
-                </div>
-                <p className="text-xl font-bold neon-text">+10 XP</p>
-                <p className="text-sm text-muted-foreground">{active?.label} complete!</p>
-              </div>
-            </div>
-          )}
 
           <div className="space-y-4">
             {active?.lines.map((line, lineIdx) => {
