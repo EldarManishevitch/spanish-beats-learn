@@ -205,22 +205,33 @@ const Dashboard = () => {
 
       <SongSearch />
 
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="h-5 w-5 text-primary" />
-          <h2 className="text-2xl font-bold">Last Searched</h2>
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {songs.map((s) => (
-            <Link key={s.id} to={`/song/${s.id}`} className="group" onMouseEnter={() => prefetchSong(s.id)} onFocus={() => prefetchSong(s.id)} onTouchStart={() => prefetchSong(s.id)}>
-              <Card className="glass overflow-hidden hover:shadow-neon-pink transition-all duration-300 hover:-translate-y-1">
+      {(() => {
+        const userLevel = progress?.cefr_level ?? "A1";
+        const userRank = CEFR_RANK[userLevel] ?? 1;
+        const recommended = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) <= userRank);
+        const challenging = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
+
+        const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
+          const level = songCefr(s);
+          return (
+            <Link to={`/song/${s.id}`} className="group" onMouseEnter={() => prefetchSong(s.id)} onFocus={() => prefetchSong(s.id)} onTouchStart={() => prefetchSong(s.id)}>
+              <Card className={`glass overflow-hidden transition-all duration-300 hover:-translate-y-1 ${challenge ? "hover:shadow-neon-yellow ring-1 ring-accent/40" : "hover:shadow-neon-pink"}`}>
                 <div className="relative aspect-video overflow-hidden">
                   {s.album_art_url && <img src={s.album_art_url} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />}
                   <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
-                  <div className="absolute top-3 right-3">
+                  <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                     <Badge variant={s.genre === "bachata" ? "secondary" : "default"} className={s.genre === "reggaeton" ? "bg-primary text-primary-foreground" : ""}>
                       {s.genre}
                     </Badge>
+                    {challenge ? (
+                      <Badge className="bg-accent/95 text-accent-foreground border border-accent shadow-neon-yellow text-[10px] uppercase tracking-wider font-bold">
+                        🚀 Level Up · {level}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-background/70 text-[10px] uppercase tracking-wider font-semibold">
+                        {level}
+                      </Badge>
+                    )}
                   </div>
                   <div className="absolute bottom-3 left-3 h-10 w-10 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-neon-pink">
                     <Play className="h-5 w-5 text-background fill-background ml-0.5" />
@@ -232,9 +243,43 @@ const Dashboard = () => {
                 </div>
               </Card>
             </Link>
-          ))}
-        </div>
-      </section>
+          );
+        };
+
+        return (
+          <>
+            {recommended.length > 0 && (
+              <section className="mb-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <Flame className="h-5 w-5 text-primary" />
+                  <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">Songs tuned for <span className="font-semibold text-primary">{userLevel}</span> learners — built to be sung today.</p>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {recommended.map((s) => <SongCard key={s.id} s={s} />)}
+                </div>
+              </section>
+            )}
+
+            {challenging.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-1">
+                  <Rocket className="h-5 w-5 text-accent" />
+                  <h2 className="text-2xl font-bold">Explore Next Challenges 🚀</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">A stretch above <span className="font-semibold">{userLevel}</span> — fully unlocked, dive in whenever you're feeling brave.</p>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {challenging.map((s) => <SongCard key={s.id} s={s} challenge />)}
+                </div>
+              </section>
+            )}
+
+            {recommended.length === 0 && challenging.length === 0 && (
+              <p className="text-muted-foreground">No songs yet — search above to add the first one.</p>
+            )}
+          </>
+        );
+      })()}
     </AppLayout>
   );
 };
