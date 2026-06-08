@@ -183,8 +183,8 @@ const SongPage = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
-          <h2 className="sr-only">Chorus quiz</h2>
-          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} />
+          <h2 className="sr-only">Section quiz</h2>
+          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} sectionId={quizSection} />
         </TabsContent>
 
       </Tabs>
