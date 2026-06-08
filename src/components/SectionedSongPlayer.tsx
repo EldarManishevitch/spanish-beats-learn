@@ -102,9 +102,16 @@ export const SectionedSongPlayer = ({
     const sorted = [...lines].sort((a, b) => a.line_index - b.line_index);
     return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
   }, [lines]);
-  const tabSections = useMemo(() => fullSong ? [...sections, fullSong] : sections, [sections, fullSong]);
+  // Tab order: Full Song → Verse 1 → Verse 2 → Chorus
+  const tabSections = useMemo(() => {
+    const order = ["full", "verse_1", "verse_2", "chorus"] as const;
+    const all = fullSong ? [fullSong, ...sections] : sections;
+    return order
+      .map((id) => all.find((s) => s.id === id))
+      .filter((s): s is Section => Boolean(s));
+  }, [sections, fullSong]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const active = tabSections.find((s) => s.id === activeId) ?? sections[0] ?? fullSong ?? null;
+  const active = tabSections.find((s) => s.id === activeId) ?? tabSections[0] ?? null;
 
   // Completion is derived strictly from the quiz_attempts table — users cannot
   // mark a section complete manually. A passing quiz attempt for this song
