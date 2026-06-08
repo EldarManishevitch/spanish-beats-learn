@@ -309,7 +309,7 @@ const Dashboard = () => {
               </section>
             )}
 
-            {recommended.length === 0 && challenging.length === 0 && (
+            {recommendedFinal.length === 0 && challenging.length === 0 && (
               <p className="text-muted-foreground">No songs yet — search above to add the first one.</p>
             )}
           </>
