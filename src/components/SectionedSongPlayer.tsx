@@ -241,6 +241,15 @@ export const SectionedSongPlayer = ({
               >
                 ▶ Play {active.label}
               </Button>
+              {onPracticeQuiz && (
+                <Button
+                  onClick={() => onPracticeQuiz(active.id)}
+                  variant="outline"
+                  className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+                >
+                  🎯 Practice with a Quiz
+                </Button>
+              )}
               <p className="text-xs text-muted-foreground ml-1">
                 Listen, tap any unfamiliar word, then ace the quiz to mark this song complete.
               </p>
