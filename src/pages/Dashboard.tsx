@@ -26,6 +26,32 @@ const CEFR_RANK: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4 };
 const songCefr = (s: { difficulty?: string | null }) =>
   DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2";
 
+// Seeded RNG so today's pick is stable across reloads but rotates daily.
+const hashSeed = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+};
+const mulberry32 = (seed: number) => () => {
+  let t = (seed += 0x6D2B79F5);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+const seededShuffle = <T,>(arr: T[], seed: string): T[] => {
+  const rand = mulberry32(hashSeed(seed));
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = {
   term: string;
