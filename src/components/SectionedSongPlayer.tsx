@@ -83,10 +83,12 @@ export const SectionedSongPlayer = ({
   youtubeId,
   lines,
   songId,
+  onPracticeQuiz,
 }: {
   youtubeId: string;
   lines: Line[];
   songId: string;
+  onPracticeQuiz?: (sectionId: "chorus" | "verse_1" | "verse_2" | "full") => void;
 }) => {
   const { user } = useAuth();
   const playerRef = useRef<YouTubePlayer | null>(null);
