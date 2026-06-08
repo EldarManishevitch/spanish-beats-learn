@@ -52,7 +52,78 @@ const todayKey = () => {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 };
 
-type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
+type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string; youtube_id: string | null };
+
+// Hoisted out of Dashboard so the component identity is stable across renders.
+// Defining it inline reset internal state on every parent render and made the
+// failed-image fallback flicker / appear unclickable mid-rerender.
+const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
+  const level = (DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2") as string;
+  // Build a deterministic fallback chain: provided art → YouTube maxres →
+  // YouTube hq → YouTube mq → gradient placeholder.
+  const candidates = [
+    s.album_art_url,
+    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/maxresdefault.jpg` : null,
+    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/hqdefault.jpg` : null,
+    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/mqdefault.jpg` : null,
+  ].filter(Boolean) as string[];
+  const [idx, setIdx] = useState(0);
+  const current = candidates[idx];
+
+  return (
+    <Link
+      to={`/song/${s.id}`}
+      className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
+      onMouseEnter={() => prefetchSong(s.id)}
+      onFocus={() => prefetchSong(s.id)}
+      onTouchStart={() => prefetchSong(s.id)}
+    >
+      <Card className={`glass overflow-hidden transition-all duration-300 hover:-translate-y-1 ${challenge ? "hover:shadow-neon-yellow ring-1 ring-accent/40" : "hover:shadow-neon-pink"}`}>
+        <div className="relative aspect-video overflow-hidden pointer-events-none">
+          {current ? (
+            <img
+              src={current}
+              alt={s.title}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              loading="lazy"
+              onError={() => setIdx((i) => i + 1)}
+            />
+          ) : (
+            <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-primary via-accent to-primary/40">
+              <div className="absolute inset-0 opacity-40 mix-blend-overlay bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent))_0%,transparent_55%),radial-gradient(circle_at_80%_70%,hsl(var(--primary))_0%,transparent_55%)]" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+                <span className="text-4xl drop-shadow-[0_0_18px_hsl(var(--primary))]" aria-hidden>🎵</span>
+                <span className="text-[11px] uppercase tracking-[0.25em] font-bold text-background/95">Ritmo Studio</span>
+              </div>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+            <Badge variant={s.genre === "bachata" ? "secondary" : "default"} className={s.genre === "reggaeton" ? "bg-primary text-primary-foreground" : ""}>
+              {s.genre}
+            </Badge>
+            {challenge ? (
+              <Badge className="bg-accent/95 text-accent-foreground border border-accent shadow-neon-yellow text-[10px] uppercase tracking-wider font-bold">
+                🚀 Level Up · {level}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-background/70 text-[10px] uppercase tracking-wider font-semibold">
+                {level}
+              </Badge>
+            )}
+          </div>
+          <div className="absolute bottom-3 left-3 h-10 w-10 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-neon-pink">
+            <Play className="h-5 w-5 text-background fill-background ml-0.5" />
+          </div>
+        </div>
+        <div className="p-4">
+          <h3 className="font-bold text-lg truncate">{s.title}</h3>
+          <p className="text-sm text-muted-foreground">{s.artist}</p>
+        </div>
+      </Card>
+    </Link>
+  );
+};
 type Slang = {
   term: string;
   contextual_meaning: string;
