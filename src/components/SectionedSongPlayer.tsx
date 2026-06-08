@@ -19,15 +19,33 @@ type Line = {
 };
 
 type Section = {
-  id: "chorus" | "verse_1" | "verse_2";
+  id: "chorus" | "verse_1" | "verse_2" | "full";
   label: string;
   lines: Line[];
 };
 
+type YouTubePlayer = {
+  destroy?: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+};
+
+type YouTubeAPI = {
+  Player: new (
+    elementId: string,
+    options: {
+      videoId: string;
+      playerVars: Record<string, number>;
+      events: { onReady: () => void };
+    },
+  ) => YouTubePlayer;
+};
+
 declare global {
   interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: any;
+    YT?: YouTubeAPI;
+    onYouTubeIframeAPIReady?: () => void;
     __ytApiLoading?: boolean;
     __ytApiReady?: boolean;
     __ytReadyCallbacks?: Array<() => void>;
@@ -93,7 +111,7 @@ export const SectionedSongPlayer = ({
 }) => {
   const { user } = useAuth();
   const { addXp } = useProgress();
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
   const sectionEndTimer = useRef<number | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
