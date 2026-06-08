@@ -247,11 +247,31 @@ const Dashboard = () => {
 
         const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
           const level = songCefr(s);
+          const [imgFailed, setImgFailed] = useState(false);
+          const showArt = !!s.album_art_url && !imgFailed;
           return (
             <Link to={`/song/${s.id}`} className="group" onMouseEnter={() => prefetchSong(s.id)} onFocus={() => prefetchSong(s.id)} onTouchStart={() => prefetchSong(s.id)}>
               <Card className={`glass overflow-hidden transition-all duration-300 hover:-translate-y-1 ${challenge ? "hover:shadow-neon-yellow ring-1 ring-accent/40" : "hover:shadow-neon-pink"}`}>
                 <div className="relative aspect-video overflow-hidden">
-                  {s.album_art_url && <img src={s.album_art_url} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />}
+                  {showArt ? (
+                    <img
+                      src={s.album_art_url!}
+                      alt={s.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                      onError={() => setImgFailed(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-primary/90 via-accent/60 to-primary/40">
+                      <div className="absolute inset-0 opacity-30 mix-blend-overlay bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent))_0%,transparent_55%),radial-gradient(circle_at_80%_70%,hsl(var(--primary))_0%,transparent_55%)]" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Music2 className="h-12 w-12 text-background/90 drop-shadow-[0_0_12px_hsl(var(--primary))]" />
+                      </div>
+                      <span className="absolute bottom-2 left-3 text-[10px] uppercase tracking-[0.2em] font-bold text-background/90">
+                        Ritmo
+                      </span>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
                   <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                     <Badge variant={s.genre === "bachata" ? "secondary" : "default"} className={s.genre === "reggaeton" ? "bg-primary text-primary-foreground" : ""}>
