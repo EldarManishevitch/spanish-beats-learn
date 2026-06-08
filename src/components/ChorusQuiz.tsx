@@ -9,13 +9,14 @@ import { UnlockCelebration } from "@/components/UnlockCelebration";
 import { touchStreak } from "@/lib/streak";
 import { toast } from "sonner";
 
-type Line = { id: string; spanish_text: string; english_translation: string | null; is_chorus: boolean };
+type Line = { id: string; line_index: number; spanish_text: string; english_translation: string | null; is_chorus: boolean };
+type SectionId = "chorus" | "verse_1" | "verse_2" | "full";
 type Q = { line: Line; missing: string; options: string[]; words: string[]; missingIdx: number };
 
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
 const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 
-export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: string; lines: Line[]; songTitle?: string; songArtist?: string }) => {
+export const ChorusQuiz = ({ songId, lines, songTitle, songArtist, sectionId = "full" }: { songId: string; lines: Line[]; songTitle?: string; songArtist?: string; sectionId?: SectionId }) => {
   const { user } = useAuth();
   const { addXp, recompute, progress } = useProgress();
   const [seed, setSeed] = useState(0);
@@ -56,7 +57,22 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
       return true;
     };
 
-    const validLines = lines.filter((l) => isValidLyric(l.spanish_text));
+    // Limit the lyric pool to the section the user opted into from the
+    // lyrics view. This makes the quiz strictly contextual to the active tab.
+    const sorted = [...lines].sort((a, b) => a.line_index - b.line_index);
+    const nonChorus = sorted.filter((l) => !l.is_chorus);
+    const mid = Math.ceil(nonChorus.length / 2);
+    const sectionLines = (() => {
+      switch (sectionId) {
+        case "chorus": return sorted.filter((l) => l.is_chorus);
+        case "verse_1": return nonChorus.slice(0, mid);
+        case "verse_2": return nonChorus.slice(mid);
+        case "full":
+        default: return sorted;
+      }
+    })();
+
+    const validLines = sectionLines.filter((l) => isValidLyric(l.spanish_text));
     const allWords = Array.from(
       new Set(
         validLines
@@ -82,7 +98,16 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: s
         missingIdx: pick.i,
       };
     });
-  }, [lines, seed, songTitle, songArtist]);
+  }, [lines, seed, songTitle, songArtist, sectionId]);
+
+  // Reset quiz state whenever the targeted section changes so the user starts
+  // fresh on the section they just jumped in from.
+  useEffect(() => {
+    setIdx(0);
+    setAnswer(null);
+    setScore(0);
+    setDone(false);
+  }, [sectionId]);
 
   const q = questions[idx];
 

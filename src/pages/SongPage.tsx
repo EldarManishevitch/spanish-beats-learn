@@ -40,6 +40,8 @@ const SongSkeleton = () => (
   </AppLayout>
 );
 
+type QuizSection = "chorus" | "verse_1" | "verse_2" | "full";
+
 const SongPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -48,6 +50,8 @@ const SongPage = () => {
   const [lines, setLines] = useState<Line[]>(cached?.lines ?? []);
   const [vocab, setVocab] = useState<Vocab[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
+  const [tab, setTab] = useState<string>("lyrics");
+  const [quizSection, setQuizSection] = useState<QuizSection>("full");
 
   const loadVocab = async () => {
     if (!user || !id) return;
@@ -116,7 +120,7 @@ const SongPage = () => {
         </div>
       </header>
 
-      <Tabs defaultValue="lyrics" className="space-y-6" onValueChange={(v) => v === "vocab" && loadVocab()}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === "vocab") loadVocab(); }} className="space-y-6">
         <TabsList className="glass">
           <TabsTrigger value="lyrics" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Music className="h-4 w-4 mr-2" /> Lyrics
@@ -131,7 +135,12 @@ const SongPage = () => {
 
         <TabsContent value="lyrics">
           <h2 className="sr-only">Lyrics with translation</h2>
-          <SectionedSongPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
+          <SectionedSongPlayer
+            youtubeId={song.youtube_id}
+            lines={lines}
+            songId={song.id}
+            onPracticeQuiz={(sectionId) => { setQuizSection(sectionId); setTab("quiz"); }}
+          />
         </TabsContent>
 
         <TabsContent value="vocab">
@@ -174,8 +183,8 @@ const SongPage = () => {
         </TabsContent>
 
         <TabsContent value="quiz">
-          <h2 className="sr-only">Chorus quiz</h2>
-          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} />
+          <h2 className="sr-only">Section quiz</h2>
+          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} sectionId={quizSection} />
         </TabsContent>
 
       </Tabs>
