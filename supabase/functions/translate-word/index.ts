@@ -34,6 +34,11 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (word.length > 100) {
+      return new Response(JSON.stringify({ error: "word too long" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const cleaned = word
       .toLowerCase()
