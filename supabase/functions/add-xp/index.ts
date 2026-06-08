@@ -1,3 +1,4 @@
+// redeploy: ensure section_completed event_type is registered
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
