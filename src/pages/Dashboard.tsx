@@ -41,6 +41,7 @@ type Slang = {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { progress } = useProgress();
   const [songs, setSongs] = useState<Song[]>([]);
   const [slang, setSlang] = useState<Slang | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
