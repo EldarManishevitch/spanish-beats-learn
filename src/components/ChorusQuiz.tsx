@@ -16,7 +16,7 @@ type Q = { line: Line; missing: string; options: string[]; words: string[]; miss
 const cleanWord = (w: string) => w.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "").trim();
 const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
 
-export const ChorusQuiz = ({ songId, lines, songTitle, songArtist }: { songId: string; lines: Line[]; songTitle?: string; songArtist?: string }) => {
+export const ChorusQuiz = ({ songId, lines, songTitle, songArtist, sectionId = "full" }: { songId: string; lines: Line[]; songTitle?: string; songArtist?: string; sectionId?: SectionId }) => {
   const { user } = useAuth();
   const { addXp, recompute, progress } = useProgress();
   const [seed, setSeed] = useState(0);
