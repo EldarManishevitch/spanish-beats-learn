@@ -40,7 +40,7 @@ export const useProgress = () => {
     return () => window.removeEventListener("streak-updated", handler);
   }, [refresh]);
 
-  const addXp = useCallback(async (event_type: "quiz_correct" | "word_mastered" | "roleplay_completed", ref_id: string) => {
+  const addXp = useCallback(async (event_type: "quiz_correct" | "word_mastered" | "roleplay_completed" | "section_completed", ref_id: string) => {
     if (!user) return;
     const { error } = await supabase.functions.invoke("add-xp", { body: { event_type, ref_id } });
     if (error) { console.error("add-xp failed", error); return; }

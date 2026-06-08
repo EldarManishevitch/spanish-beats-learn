@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
-import { LyricsPlayer } from "@/components/LyricsPlayer";
+import { SectionedSongPlayer } from "@/components/SectionedSongPlayer";
 import { ChorusQuiz } from "@/components/ChorusQuiz";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -131,7 +131,7 @@ const SongPage = () => {
 
         <TabsContent value="lyrics">
           <h2 className="sr-only">Lyrics with translation</h2>
-          <LyricsPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
+          <SectionedSongPlayer youtubeId={song.youtube_id} lines={lines} songId={song.id} />
         </TabsContent>
 
         <TabsContent value="vocab">

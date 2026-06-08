@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music, BookOpen, LogOut, Sparkles, RotateCcw, MessageCircle, Mic, Menu } from "lucide-react";
+import { Music, BookOpen, LogOut, Sparkles, RotateCcw, MessageCircle, Mic, Menu, Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CefrBadge } from "@/components/CefrBadge";
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: "/review", icon: RotateCcw, label: "Review", id: "tour-review" },
   { to: "/conversations", icon: MessageCircle, label: "Talk" },
   { to: "/roleplay", icon: Mic, label: "Roleplay" },
+  { to: "/settings", icon: SettingsIcon, label: "Settings" },
 ];
 
 export const AppLayout = ({ children }: { children: ReactNode }) => {

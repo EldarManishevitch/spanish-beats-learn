@@ -9,6 +9,8 @@ import { Play, Sparkles, Zap, Music2 } from "lucide-react";
 import { SongSearch } from "@/components/SongSearch";
 import { SiteTour } from "@/components/SiteTour";
 import { prefetchSong } from "@/lib/songCache";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = {
@@ -24,9 +26,26 @@ type Slang = {
 };
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [songs, setSongs] = useState<Song[]>([]);
   const [slang, setSlang] = useState<Slang | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Show the onboarding wizard the first time a user lands on the dashboard
+  // after sign-up. We trust the `onboarding_completed` flag on profiles so the
+  // wizard never appears again even if the user later clears local storage.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && !data.onboarding_completed) setOnboardingOpen(true);
+      });
+  }, [user]);
 
   const loadSongs = async () => {
     const { data } = await supabase
@@ -85,6 +104,7 @@ const Dashboard = () => {
           description: "Learn Spanish through Bachata and Reggaeton lyrics with interactive translations, pronunciation guides, and vocabulary drills.",
         })}</script>
       </Helmet>
+      <OnboardingWizard open={onboardingOpen} onComplete={() => setOnboardingOpen(false)} />
       <SiteTour />
       <section className="mb-10 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold mb-2">

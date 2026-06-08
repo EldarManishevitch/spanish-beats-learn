@@ -17,6 +17,9 @@ const XP_RULES: Record<string, { amount: number; refRequired: boolean }> = {
   word_mastered: { amount: 25, refRequired: true },
   // ref_id = YYYY-MM-DD — one award per day
   roleplay_completed: { amount: 50, refRequired: true },
+  // ref_id = `${song_id}:${section_id}` — one award per micro-section per song.
+  // Drives the dopamine loop on the Song page.
+  section_completed: { amount: 10, refRequired: true },
 };
 
 const json = (body: unknown, status = 200) =>
