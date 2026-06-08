@@ -31,21 +31,8 @@ type YouTubePlayer = {
   pauseVideo: () => void;
 };
 
-type YouTubeAPI = {
-  Player: new (
-    elementId: string,
-    options: {
-      videoId: string;
-      playerVars: Record<string, number>;
-      events: { onReady: () => void };
-    },
-  ) => YouTubePlayer;
-};
-
 declare global {
   interface Window {
-    YT?: YouTubeAPI;
-    onYouTubeIframeAPIReady?: () => void;
     __ytApiLoading?: boolean;
     __ytApiReady?: boolean;
     __ytReadyCallbacks?: Array<() => void>;
