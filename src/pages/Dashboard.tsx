@@ -9,6 +9,8 @@ import { Play, Sparkles, Zap, Music2 } from "lucide-react";
 import { SongSearch } from "@/components/SongSearch";
 import { SiteTour } from "@/components/SiteTour";
 import { prefetchSong } from "@/lib/songCache";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Song = { id: string; title: string; artist: string; genre: string; album_art_url: string | null; difficulty: string };
 type Slang = {
