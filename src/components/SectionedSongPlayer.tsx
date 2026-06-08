@@ -121,8 +121,8 @@ export const SectionedSongPlayer = ({
   useEffect(() => { setHintActive(true); }, [songId]);
 
   useEffect(() => {
-    if (sections.length && !activeId) setActiveId(sections[0].id);
-  }, [sections, activeId]);
+    if (tabSections.length && !activeId) setActiveId(tabSections[0].id);
+  }, [tabSections, activeId]);
 
   useEffect(() => {
     let cancelled = false;
