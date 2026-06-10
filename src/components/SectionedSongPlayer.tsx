@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Check, Sparkles, Music } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { checkYouTubeVideoBroken, healSongYoutubeVideo } from "@/lib/youtubeHealing";
 
 type Line = {
   id: string;
@@ -81,11 +82,15 @@ const splitSections = (lines: Line[]): Section[] => {
 
 export const SectionedSongPlayer = ({
   youtubeId,
+  songTitle,
+  songArtist,
   lines,
   songId,
   onPracticeQuiz,
 }: {
-  youtubeId: string;
+  youtubeId: string | null;
+  songTitle?: string;
+  songArtist?: string;
   lines: Line[];
   songId: string;
   onPracticeQuiz?: (sectionId: "chorus" | "verse_1" | "verse_2" | "full") => void;
@@ -97,10 +102,11 @@ export const SectionedSongPlayer = ({
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
   // Active YouTube id (may be hot-swapped if the original is unavailable).
-  const [activeYoutubeId, setActiveYoutubeId] = useState(youtubeId);
+  const [activeYoutubeId, setActiveYoutubeId] = useState<string | null>(youtubeId ?? null);
   const [healing, setHealing] = useState(false);
+  const [checkingVideo, setCheckingVideo] = useState(false);
   const healedIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => { setActiveYoutubeId(youtubeId); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
+  useEffect(() => { setActiveYoutubeId(youtubeId ?? null); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
 
 
   // Live copy of lines — seeded from props, then kept in sync via realtime so
@@ -194,42 +200,20 @@ export const SectionedSongPlayer = ({
     setHealing(true);
     healedIdsRef.current.add(brokenId);
     try {
-      const { data: songRow, error: songErr } = await supabase
-        .from("songs")
-        .select("title, artist")
-        .eq("id", songId)
-        .maybeSingle();
-      if (songErr || !songRow?.title) {
-        console.error("auto-heal: could not load song metadata", songErr);
-        return;
-      }
-      const query = `${songRow.title} ${songRow.artist ?? ""}`.trim();
-      console.log("Auto-heal: searching YouTube for replacement →", { query, brokenId, errorCode });
-      const { data, error } = await supabase.functions.invoke("youtube-search", { body: { q: query } });
-      if (error) { console.error("auto-heal search failed", error); return; }
-      const results: Array<{ youtube_id: string; thumbnail?: string }> = data?.results ?? [];
-      // Skip the broken id AND any previously-failed ids. Walk results in
-      // order so we take the next-best candidate (typically index 1 or 2).
-      const next = results.find(
-        (r) => r.youtube_id && !healedIdsRef.current.has(r.youtube_id),
-      );
+      console.log("Auto-heal: healing trigger", { brokenId, errorCode });
+      const next = await healSongYoutubeVideo({
+        id: songId,
+        title: songTitle,
+        artist: songArtist,
+        youtube_id: brokenId,
+      });
       if (!next) {
-        console.warn("auto-heal: no valid replacement found, hiding song from catalog");
-        const { error: updErr } = await supabase
-          .from("songs")
-          .update({ youtube_id: null })
-          .eq("id", songId);
-        if (updErr) console.error("auto-heal: failed to null youtube_id", updErr);
+        setActiveYoutubeId(null);
         return;
       }
       console.log("Auto-heal: hot-swapping video", { from: brokenId, to: next.youtube_id });
       healedIdsRef.current.add(next.youtube_id);
       setActiveYoutubeId(next.youtube_id);
-      const { error: updErr } = await supabase
-        .from("songs")
-        .update({ youtube_id: next.youtube_id, album_art_url: next.thumbnail ?? null })
-        .eq("id", songId);
-      if (updErr) console.error("auto-heal: failed to persist new youtube_id", updErr);
     } catch (err) {
       console.error("auto-heal: unexpected error", err);
     } finally {
@@ -242,6 +226,16 @@ export const SectionedSongPlayer = ({
     let cancelled = false;
     setVideoReady(false);
     const currentId = activeYoutubeId;
+    if (!currentId) return () => { cancelled = true; };
+    setCheckingVideo(true);
+    checkYouTubeVideoBroken(currentId).then((isBroken) => {
+      if (cancelled) return;
+      setCheckingVideo(false);
+      if (isBroken) {
+        console.log("YouTube thumbnail availability check failed:", currentId);
+        healVideo(currentId, 90);
+        return;
+      }
     loadYouTubeAPI().then(() => {
       if (cancelled) return;
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
@@ -263,8 +257,10 @@ export const SectionedSongPlayer = ({
         },
       });
     });
+    });
     return () => {
       cancelled = true;
+      setCheckingVideo(false);
       if (sectionEndTimer.current) window.clearTimeout(sectionEndTimer.current);
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = null;
@@ -301,7 +297,7 @@ export const SectionedSongPlayer = ({
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {!videoReady && <NeonLoader label="Loading video…" />}
+            {activeYoutubeId ? (!videoReady && <NeonLoader label={healing ? "Finding a working version…" : checkingVideo ? "Checking video availability…" : "Loading video…"} />) : <NeonLoader label="Finding a working version…" />}
             <div id="yt-player" className="w-full h-full" />
           </div>
         </div>
@@ -361,7 +357,7 @@ export const SectionedSongPlayer = ({
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {!videoReady && <NeonLoader label={healing ? "Finding a working version…" : "Loading video…"} />}
+            {activeYoutubeId ? (!videoReady && <NeonLoader label={healing ? "Finding a working version…" : checkingVideo ? "Checking video availability…" : "Loading video…"} />) : <NeonLoader label="Finding a working version…" />}
             <div id="yt-player" className="w-full h-full" />
           </div>
           {active && (
