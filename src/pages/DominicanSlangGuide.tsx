@@ -266,6 +266,7 @@ const DominicanSlangGuide = () => {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search a word, phrase, song, or artist..."
+              aria-label="Search Dominican slang terms"
               className="pl-11 h-12 text-base"
             />
           </div>
