@@ -176,11 +176,15 @@ const Dashboard = () => {
   }, [user]);
 
   const loadSongs = async () => {
+    // Catalog defaults first so the "Recommended For Your Level" shelf is
+    // always fully populated from the curated A1–B2 baseline, then recent
+    // user-searched songs fill in below.
     const { data } = await supabase
       .from("songs")
       .select("*")
+      .order("is_catalog_default", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(120);
+      .limit(240);
     setSongs(data ?? []);
   };
 
@@ -326,9 +330,14 @@ const Dashboard = () => {
         const atLevel = songs.filter((s) => songCefr(s) === userLevel);
         const above = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
         const seed = `${user?.id ?? "guest"}:${userLevel}:${todayKey()}`;
-        const shuffledAt = seededShuffle(atLevel, seed);
+        // Prioritize curated catalog defaults so the shelf is populated from
+        // sign-up, then mix in any ad-hoc user-searched songs at the same level.
+        const isCatalog = (s: Song) => Boolean((s as Song & { is_catalog_default?: boolean }).is_catalog_default);
+        const catalogAt = atLevel.filter(isCatalog);
+        const userAt = atLevel.filter((s) => !isCatalog(s));
+        const shuffledAt = [...seededShuffle(catalogAt, seed), ...seededShuffle(userAt, seed + ":user")];
         const shuffledAbove = seededShuffle(above, seed + ":above");
-        const recommendedFinal = shuffledAt.slice(0, 6);
+        const recommendedFinal = shuffledAt.slice(0, 18);
         const fillerIds = new Set<string>();
         const challenging = shuffledAbove;
 
@@ -343,7 +352,7 @@ const Dashboard = () => {
                   <Flame className="h-5 w-5 text-primary" />
                   <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">6 songs picked for you today · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
+                <p className="text-sm text-muted-foreground mb-4">{recommendedFinal.length} songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
                 </div>
