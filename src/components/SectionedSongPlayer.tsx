@@ -331,7 +331,7 @@ export const SectionedSongPlayer = ({
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {!videoReady && <NeonLoader label="Loading video…" />}
+            {!videoReady && <NeonLoader label={healing ? "Finding a working version…" : "Loading video…"} />}
             <div id="yt-player" className="w-full h-full" />
           </div>
           {active && (
