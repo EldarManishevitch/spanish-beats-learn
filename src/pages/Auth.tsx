@@ -39,6 +39,7 @@ const Auth = () => {
         <meta name="description" content="Sign in to Ritmo to save vocabulary and track your progress learning Spanish through Bachata and Reggaeton." />
         <link rel="canonical" href="/auth" />
         <meta property="og:title" content="Sign in to Ritmo" />
+        <meta property="og:description" content="Sign in to Ritmo to save vocabulary, track your CEFR progress, and unlock the full catalog of Bachata and Reggaeton lessons." />
         <meta property="og:url" content="/auth" />
       </Helmet>
       <main className="min-h-screen flex items-center justify-center px-4">
