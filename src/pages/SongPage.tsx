@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCachedSong, prefetchSong } from "@/lib/songCache";
 // Streaks are only updated on quiz completion (see ChorusQuiz), not on song view.
 
-type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string; album_art_url: string | null };
+type Song = { id: string; title: string; artist: string; genre: string; youtube_id: string | null; album_art_url: string | null };
 type Line = { id: string; line_index: number; spanish_text: string; pronunciation: string | null; english_translation: string | null; start_seconds: number; end_seconds: number; is_chorus: boolean };
 type Vocab = { word: string; hebrew: string; is_slang: boolean };
 type Flag = { word: string; miss_count: number };
@@ -148,6 +148,8 @@ const SongPage = () => {
           <h2 className="sr-only">Lyrics with translation</h2>
           <SectionedSongPlayer
             youtubeId={song.youtube_id}
+            songTitle={song.title}
+            songArtist={song.artist}
             lines={lines}
             songId={song.id}
             onPracticeQuiz={(sectionId) => { setQuizSection(sectionId); setTab("quiz"); }}
