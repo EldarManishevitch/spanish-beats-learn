@@ -96,6 +96,12 @@ export const SectionedSongPlayer = ({
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
+  // Active YouTube id (may be hot-swapped if the original is unavailable).
+  const [activeYoutubeId, setActiveYoutubeId] = useState(youtubeId);
+  const [healing, setHealing] = useState(false);
+  const healedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => { setActiveYoutubeId(youtubeId); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
+
 
   // Live copy of lines — seeded from props, then kept in sync via realtime so
   // section tags (is_chorus) unlock tabs without a page refresh.
@@ -175,6 +181,38 @@ export const SectionedSongPlayer = ({
     return () => { cancelled = true; };
   }, [user, songId]);
 
+  // Attempt to find a working replacement video and hot-swap it in.
+  const healVideo = async () => {
+    if (healing) return;
+    setHealing(true);
+    try {
+      const { data: songRow } = await supabase
+        .from("songs")
+        .select("title, artist")
+        .eq("id", songId)
+        .maybeSingle();
+      if (!songRow?.title) return;
+      const query = `${songRow.title} ${songRow.artist ?? ""} official audio`.trim();
+      const { data, error } = await supabase.functions.invoke("youtube-search", { body: { q: query } });
+      if (error) { console.error("auto-heal search failed", error); return; }
+      const results: Array<{ youtube_id: string; thumbnail?: string }> = data?.results ?? [];
+      const next = results.find((r) => r.youtube_id && r.youtube_id !== activeYoutubeId && !healedIdsRef.current.has(r.youtube_id));
+      if (!next) {
+        // No replacement — null out youtube_id so Dashboard hides the card.
+        await supabase.from("songs").update({ youtube_id: null }).eq("id", songId);
+        return;
+      }
+      healedIdsRef.current.add(next.youtube_id);
+      setActiveYoutubeId(next.youtube_id);
+      await supabase
+        .from("songs")
+        .update({ youtube_id: next.youtube_id, album_art_url: next.thumbnail ?? null })
+        .eq("id", songId);
+    } finally {
+      setHealing(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     setVideoReady(false);
@@ -182,9 +220,18 @@ export const SectionedSongPlayer = ({
       if (cancelled) return;
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = new window.YT.Player("yt-player", {
-        videoId: youtubeId,
+        videoId: activeYoutubeId,
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
-        events: { onReady: () => { if (!cancelled) setVideoReady(true); } },
+        events: {
+          onReady: () => { if (!cancelled) setVideoReady(true); },
+          onError: (e: { data: number }) => {
+            // 100 = removed/private, 101/150 = embed blocked / region locked.
+            if ([100, 101, 150].includes(e?.data)) {
+              console.warn("YouTube player error", e.data, "— attempting auto-heal");
+              healVideo();
+            }
+          },
+        },
       });
     });
     return () => {
@@ -193,7 +240,8 @@ export const SectionedSongPlayer = ({
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = null;
     };
-  }, [youtubeId]);
+  }, [activeYoutubeId]);
+
 
   const playSection = (s: Section) => {
     if (!playerRef.current || !videoReady || s.lines.length === 0) return;
@@ -283,7 +331,7 @@ export const SectionedSongPlayer = ({
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {!videoReady && <NeonLoader label="Loading video…" />}
+            {!videoReady && <NeonLoader label={healing ? "Finding a working version…" : "Loading video…"} />}
             <div id="yt-player" className="w-full h-full" />
           </div>
           {active && (
