@@ -156,6 +156,10 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { progress } = useProgress();
   const [songs, setSongs] = useState<Song[]>([]);
+  // Bumped on every mount so the Recommended shelf reshuffles per page load
+  // without causing a re-render on unrelated state changes (stable for the
+  // lifetime of this Dashboard instance → no layout shifts).
+  const [shuffleNonce] = useState(() => Math.random().toString(36).slice(2));
   const [slang, setSlang] = useState<Slang | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const navigate = useNavigate();
@@ -329,7 +333,7 @@ const Dashboard = () => {
         // user's current CEFR level. Higher- and lower-level songs are excluded.
         const atLevel = songs.filter((s) => songCefr(s) === userLevel);
         const above = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
-        const seed = `${user?.id ?? "guest"}:${userLevel}:${todayKey()}`;
+        const seed = `${user?.id ?? "guest"}:${userLevel}:${shuffleNonce}`;
         // Prioritize curated catalog defaults so the shelf is populated from
         // sign-up, then mix in any ad-hoc user-searched songs at the same level.
         const isCatalog = (s: Song) => Boolean((s as Song & { is_catalog_default?: boolean }).is_catalog_default);
@@ -337,7 +341,8 @@ const Dashboard = () => {
         const userAt = atLevel.filter((s) => !isCatalog(s));
         const shuffledAt = [...seededShuffle(catalogAt, seed), ...seededShuffle(userAt, seed + ":user")];
         const shuffledAbove = seededShuffle(above, seed + ":above");
-        const recommendedFinal = shuffledAt.slice(0, 18);
+        // Strictly 6 randomized picks per page load.
+        const recommendedFinal = shuffledAt.slice(0, 6);
         const fillerIds = new Set<string>();
         const challenging = shuffledAbove;
 
@@ -352,7 +357,7 @@ const Dashboard = () => {
                   <Flame className="h-5 w-5 text-primary" />
                   <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{recommendedFinal.length} songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
+                <p className="text-sm text-muted-foreground mb-4">6 songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · refresh for a new mix.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
                 </div>
