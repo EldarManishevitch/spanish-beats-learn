@@ -162,12 +162,12 @@ const ReggaetonSlangGuide = () => {
                     <span className="text-muted-foreground">Means:</span> {s.contextual_meaning}
                   </p>
                   {s.english_equivalent && (
-                    <p className="text-sm text-foreground/80 mb-1">
+                    <p className="text-sm text-foreground mb-1">
                       <span className="text-muted-foreground">English equivalent:</span> {s.english_equivalent}
                     </p>
                   )}
                   {s.literal_meaning && (
-                    <p className="text-sm text-foreground/70 mb-1">
+                    <p className="text-sm text-foreground mb-1">
                       <span className="text-muted-foreground">Literal:</span> {s.literal_meaning}
                     </p>
                   )}
@@ -178,7 +178,7 @@ const ReggaetonSlangGuide = () => {
                     </p>
                   )}
                   {s.lyrics_snippet && (
-                    <blockquote className="mt-2 border-l-2 border-primary/40 pl-3 text-sm italic text-foreground/80">
+                    <blockquote className="mt-2 border-l-2 border-primary/40 pl-3 text-sm italic text-foreground">
                       "{s.lyrics_snippet}"
                       {s.lyrics_snippet_translation && (
                         <span className="block not-italic text-xs text-muted-foreground mt-1">
@@ -225,7 +225,7 @@ const ReggaetonSlangGuide = () => {
                     <p className="text-sm font-medium mb-1">
                       <span className="text-muted-foreground">Translates to:</span> {w.meaning}
                     </p>
-                    <p className="text-sm text-foreground/80">{w.note}</p>
+                    <p className="text-sm text-foreground">{w.note}</p>
                   </div>
                 </Card>
               ))}
