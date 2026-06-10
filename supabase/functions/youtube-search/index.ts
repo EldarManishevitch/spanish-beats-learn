@@ -91,9 +91,17 @@ Deno.serve(async (req) => {
     if (!resp.ok) {
       const t = await resp.text();
       console.error("YouTube API error", resp.status, t);
-      return new Response(JSON.stringify({ error: "YouTube search failed" }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Contain upstream failures (quota 429/403, 5xx) so the frontend's
+      // auto-heal and song search don't crash. Return 200 with a fallback flag.
+      const quotaExhausted = resp.status === 429 || resp.status === 403;
+      return new Response(
+        JSON.stringify({
+          results: [],
+          fallback: true,
+          error: quotaExhausted ? "YOUTUBE_QUOTA_EXCEEDED" : "YOUTUBE_SERVICE_UNAVAILABLE",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
     const data = await resp.json();
     const raw = (data.items ?? []).map((it: any) => ({
