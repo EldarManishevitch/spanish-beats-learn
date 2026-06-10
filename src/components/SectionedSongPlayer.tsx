@@ -181,34 +181,59 @@ export const SectionedSongPlayer = ({
     return () => { cancelled = true; };
   }, [user, songId]);
 
-  // Attempt to find a working replacement video and hot-swap it in.
-  const healVideo = async () => {
-    if (healing) return;
+  // Ref-based lock so the closure inside the YT.Player onError callback
+  // (created once at mount) always sees the latest value and we never queue
+  // multiple parallel heals → no infinite search loops.
+  const healingRef = useRef(false);
+  const healVideo = async (brokenId: string, errorCode: number) => {
+    if (healingRef.current) {
+      console.log("Auto-heal already in progress, skipping duplicate trigger");
+      return;
+    }
+    healingRef.current = true;
     setHealing(true);
+    healedIdsRef.current.add(brokenId);
     try {
-      const { data: songRow } = await supabase
+      const { data: songRow, error: songErr } = await supabase
         .from("songs")
         .select("title, artist")
         .eq("id", songId)
         .maybeSingle();
-      if (!songRow?.title) return;
-      const query = `${songRow.title} ${songRow.artist ?? ""} official audio`.trim();
+      if (songErr || !songRow?.title) {
+        console.error("auto-heal: could not load song metadata", songErr);
+        return;
+      }
+      const query = `${songRow.title} ${songRow.artist ?? ""}`.trim();
+      console.log("Auto-heal: searching YouTube for replacement →", { query, brokenId, errorCode });
       const { data, error } = await supabase.functions.invoke("youtube-search", { body: { q: query } });
       if (error) { console.error("auto-heal search failed", error); return; }
       const results: Array<{ youtube_id: string; thumbnail?: string }> = data?.results ?? [];
-      const next = results.find((r) => r.youtube_id && r.youtube_id !== activeYoutubeId && !healedIdsRef.current.has(r.youtube_id));
+      // Skip the broken id AND any previously-failed ids. Walk results in
+      // order so we take the next-best candidate (typically index 1 or 2).
+      const next = results.find(
+        (r) => r.youtube_id && !healedIdsRef.current.has(r.youtube_id),
+      );
       if (!next) {
-        // No replacement — null out youtube_id so Dashboard hides the card.
-        await supabase.from("songs").update({ youtube_id: null }).eq("id", songId);
+        console.warn("auto-heal: no valid replacement found, hiding song from catalog");
+        const { error: updErr } = await supabase
+          .from("songs")
+          .update({ youtube_id: null })
+          .eq("id", songId);
+        if (updErr) console.error("auto-heal: failed to null youtube_id", updErr);
         return;
       }
+      console.log("Auto-heal: hot-swapping video", { from: brokenId, to: next.youtube_id });
       healedIdsRef.current.add(next.youtube_id);
       setActiveYoutubeId(next.youtube_id);
-      await supabase
+      const { error: updErr } = await supabase
         .from("songs")
         .update({ youtube_id: next.youtube_id, album_art_url: next.thumbnail ?? null })
         .eq("id", songId);
+      if (updErr) console.error("auto-heal: failed to persist new youtube_id", updErr);
+    } catch (err) {
+      console.error("auto-heal: unexpected error", err);
     } finally {
+      healingRef.current = false;
       setHealing(false);
     }
   };
@@ -216,19 +241,23 @@ export const SectionedSongPlayer = ({
   useEffect(() => {
     let cancelled = false;
     setVideoReady(false);
+    const currentId = activeYoutubeId;
     loadYouTubeAPI().then(() => {
       if (cancelled) return;
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = new window.YT.Player("yt-player", {
-        videoId: activeYoutubeId,
+        videoId: currentId,
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
         events: {
           onReady: () => { if (!cancelled) setVideoReady(true); },
-          onError: (e: { data: number }) => {
-            // 100 = removed/private, 101/150 = embed blocked / region locked.
-            if ([100, 101, 150].includes(e?.data)) {
-              console.warn("YouTube player error", e.data, "— attempting auto-heal");
-              healVideo();
+          // Bound directly to the native YT IFrame API onError event.
+          // Codes: 2 = invalid videoId, 5 = HTML5 player error,
+          // 100 = removed/private, 101/150 = embed/region blocked.
+          onError: (event: { data: number }) => {
+            console.log("YouTube Player Error Intercepted:", event?.data, "for videoId:", currentId);
+            const code = event?.data;
+            if ([2, 5, 100, 101, 150].includes(code)) {
+              healVideo(currentId, code);
             }
           },
         },
@@ -241,6 +270,7 @@ export const SectionedSongPlayer = ({
       playerRef.current = null;
     };
   }, [activeYoutubeId]);
+
 
 
   const playSection = (s: Section) => {
