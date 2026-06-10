@@ -357,7 +357,7 @@ const Dashboard = () => {
                   <Flame className="h-5 w-5 text-primary" />
                   <h2 className="text-2xl font-bold">Recommended For Your Level 🔥</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{recommendedFinal.length} songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · fresh batch tomorrow.</p>
+                <p className="text-sm text-muted-foreground mb-4">6 songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · refresh for a new mix.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
                 </div>
