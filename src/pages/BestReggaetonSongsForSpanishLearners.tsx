@@ -9,7 +9,7 @@ const SITE = "https://spanish-beats-learn.lovable.app";
 const URL = `${SITE}/guides/best-reggaeton-songs-for-spanish-learners`;
 const TITLE = "10 Best Reggaeton Songs to Learn Spanish in 2026";
 const DESC =
-  "The 10 best Reggaeton songs for Spanish learners — slow-enough hooks, clean slang, and choruses you'll actually remember. From Bad Bunny and Karol G to Daddy Yankee and Rauw Alejandro.";
+  "10 Reggaeton songs perfect for Spanish learners — slow hooks, clean slang, and unforgettable choruses from Bad Bunny, Karol G, Daddy Yankee, and Rauw Alejandro.";
 
 type Pick = {
   rank: number;

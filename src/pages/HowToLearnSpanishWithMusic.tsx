@@ -9,7 +9,7 @@ const SITE = "https://spanish-beats-learn.lovable.app";
 const URL = `${SITE}/guides/how-to-learn-spanish-with-music`;
 const TITLE = "How to Learn Spanish with Music — A Practical Guide";
 const DESC =
-  "A step-by-step guide to learning Spanish through Reggaeton, Bachata, and Latin pop. Why songs beat textbooks, how to study lyrics, and the best genres to start with.";
+  "A step-by-step guide to learning Spanish through Reggaeton, Bachata, and Latin pop. Why songs beat textbooks, how to study lyrics, and best genres to start.";
 
 const STEPS = [
   {
