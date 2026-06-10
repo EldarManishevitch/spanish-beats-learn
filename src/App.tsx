@@ -21,6 +21,7 @@ import ReggaetonSlangGuide from "./pages/ReggaetonSlangGuide";
 import DominicanSlangGuide from "./pages/DominicanSlangGuide";
 import HowToLearnSpanishWithMusic from "./pages/HowToLearnSpanishWithMusic";
 import BestReggaetonSongsForSpanishLearners from "./pages/BestReggaetonSongsForSpanishLearners";
+import BestBachataSongsForSpanishLearners from "./pages/BestBachataSongsForSpanishLearners";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/dominican-slang-guide" element={<DominicanSlangGuide />} />
             <Route path="/guides/how-to-learn-spanish-with-music" element={<HowToLearnSpanishWithMusic />} />
             <Route path="/guides/best-reggaeton-songs-for-spanish-learners" element={<BestReggaetonSongsForSpanishLearners />} />
+            <Route path="/guides/best-bachata-songs-for-spanish-learners" element={<BestBachataSongsForSpanishLearners />} />
             <Route path="/" element={<RootGate />} />
             <Route path="/song/pending/:youtubeId" element={<ProtectedRoute><SongPending /></ProtectedRoute>} />
             <Route path="/song/:id" element={<ProtectedRoute><SongPage /></ProtectedRoute>} />
