@@ -189,7 +189,9 @@ const Dashboard = () => {
       .order("is_catalog_default", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(240);
-    setSongs(data ?? []);
+    // Filter out songs whose youtube_id was nulled by the auto-heal engine
+    // when no working replacement could be found — they would render broken cards.
+    setSongs((data ?? []).filter((s) => Boolean(s.youtube_id)));
   };
 
   useEffect(() => {
