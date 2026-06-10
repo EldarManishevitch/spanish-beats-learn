@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { prefetchSong } from "@/lib/songCache";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProgress } from "@/hooks/useProgress";
+import { checkYouTubeVideoBroken, healSongYoutubeVideo } from "@/lib/youtubeHealing";
 
 // Map legacy difficulty labels to a CEFR rank so we can compare against the
 // user's profile.cefr_level. Higher rank = harder material.
@@ -57,22 +58,58 @@ type Song = { id: string; title: string; artist: string; genre: string; album_ar
 // Hoisted out of Dashboard so the component identity is stable across renders.
 // Defining it inline reset internal state on every parent render and made the
 // failed-image fallback flicker / appear unclickable mid-rerender.
-const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
+const SongCard = ({
+  s,
+  challenge,
+  onHealed,
+  onBroken,
+}: {
+  s: Song;
+  challenge?: boolean;
+  onHealed?: (songId: string, healed: { youtube_id: string; thumbnail: string | null }) => void;
+  onBroken?: (songId: string) => void;
+}) => {
   const navigate = useNavigate();
-  const level = (DIFFICULTY_TO_CEFR[(s.difficulty ?? "").toLowerCase()] ?? "A2") as string;
-  const path = `/song/${s.id}`;
+  const [displaySong, setDisplaySong] = useState(s);
+  const [checking, setChecking] = useState(Boolean(s.youtube_id));
+  useEffect(() => { setDisplaySong(s); setChecking(Boolean(s.youtube_id)); }, [s]);
+
+  useEffect(() => {
+    if (!s.youtube_id) { onBroken?.(s.id); return; }
+    let cancelled = false;
+    setChecking(true);
+    checkYouTubeVideoBroken(s.youtube_id).then(async (isBroken) => {
+      if (cancelled) return;
+      if (!isBroken) { setChecking(false); return; }
+      console.log("Dashboard YouTube thumbnail availability check failed:", s.youtube_id);
+      const healed = await healSongYoutubeVideo(s);
+      if (cancelled) return;
+      setChecking(false);
+      if (healed) {
+        setDisplaySong((current) => ({ ...current, youtube_id: healed.youtube_id, album_art_url: healed.thumbnail ?? current.album_art_url }));
+        onHealed?.(s.id, healed);
+      } else {
+        onBroken?.(s.id);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [s.id, s.title, s.artist, s.youtube_id, onHealed, onBroken]);
+
+  const level = (DIFFICULTY_TO_CEFR[(displaySong.difficulty ?? "").toLowerCase()] ?? "A2") as string;
+  const path = `/song/${displaySong.id}`;
   const isPlaceholderUrl = (url: string | null) =>
     !url || /(^|\/)(default|sddefault|hqdefault|mqdefault|maxresdefault|0)\.jpg(\?|$)/i.test(url) || /placeholder|no[_-]?thumbnail|grey|gray/i.test(url);
   // Prefer direct YouTube thumbnails, skip stored YouTube placeholder URLs, then use the neon CSS fallback.
   const candidates = [
-    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/0.jpg` : null,
-    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/maxresdefault.jpg` : null,
-    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/hqdefault.jpg` : null,
-    s.youtube_id ? `https://img.youtube.com/vi/${s.youtube_id}/mqdefault.jpg` : null,
-    isPlaceholderUrl(s.album_art_url) ? null : s.album_art_url,
+    displaySong.youtube_id ? `https://img.youtube.com/vi/${displaySong.youtube_id}/0.jpg` : null,
+    displaySong.youtube_id ? `https://img.youtube.com/vi/${displaySong.youtube_id}/maxresdefault.jpg` : null,
+    displaySong.youtube_id ? `https://img.youtube.com/vi/${displaySong.youtube_id}/hqdefault.jpg` : null,
+    displaySong.youtube_id ? `https://img.youtube.com/vi/${displaySong.youtube_id}/mqdefault.jpg` : null,
+    isPlaceholderUrl(displaySong.album_art_url) ? null : displaySong.album_art_url,
   ].filter(Boolean) as string[];
   const [idx, setIdx] = useState(0);
   const current = candidates[idx];
+  useEffect(() => { setIdx(0); }, [displaySong.youtube_id, displaySong.album_art_url]);
   const goToSong = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -94,7 +131,7 @@ const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
           {current ? (
             <img
               src={current}
-              alt={s.title}
+              alt={displaySong.title}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               loading="lazy"
               onLoad={(event) => {
@@ -108,15 +145,15 @@ const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
               <div className="absolute inset-0 opacity-45 mix-blend-overlay bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent))_0%,transparent_55%),radial-gradient(circle_at_80%_70%,hsl(var(--primary))_0%,transparent_55%)]" />
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-5 text-center">
                 <span className="text-5xl drop-shadow-[0_0_18px_hsl(var(--primary))]" aria-hidden>🎵</span>
-                <span className="text-base font-black text-primary-foreground line-clamp-2 drop-shadow">{s.title}</span>
-                <span className="text-[11px] uppercase tracking-wider font-bold text-primary-foreground/85 line-clamp-1">{s.artist}</span>
+                <span className="text-base font-black text-primary-foreground line-clamp-2 drop-shadow">{displaySong.title}</span>
+                <span className="text-[11px] uppercase tracking-wider font-bold text-primary-foreground/85 line-clamp-1">{displaySong.artist}</span>
               </div>
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
           <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
-            <Badge variant={s.genre === "bachata" ? "secondary" : "default"} className={s.genre === "reggaeton" ? "bg-primary text-primary-foreground" : ""}>
-              {s.genre}
+            <Badge variant={displaySong.genre === "bachata" ? "secondary" : "default"} className={displaySong.genre === "reggaeton" ? "bg-primary text-primary-foreground" : ""}>
+              {displaySong.genre}
             </Badge>
             {challenge ? (
               <Badge className="bg-accent/95 text-accent-foreground border border-accent shadow-neon-yellow text-[10px] uppercase tracking-wider font-bold">
@@ -131,10 +168,15 @@ const SongCard = ({ s, challenge }: { s: Song; challenge?: boolean }) => {
           <div className="absolute bottom-3 left-3 h-10 w-10 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-neon-pink">
             <Play className="h-5 w-5 text-background fill-background ml-0.5" />
           </div>
+          {checking && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/55 backdrop-blur-sm text-xs font-semibold text-primary">
+              Checking version…
+            </div>
+          )}
         </div>
         <div className="p-4">
-          <h3 className="font-bold text-lg truncate">{s.title}</h3>
-          <p className="text-sm text-muted-foreground">{s.artist}</p>
+          <h3 className="font-bold text-lg truncate">{displaySong.title}</h3>
+          <p className="text-sm text-muted-foreground">{displaySong.artist}</p>
         </div>
       </Card>
     </Link>
@@ -164,6 +206,19 @@ const Dashboard = () => {
   const [slang, setSlang] = useState<Slang | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const navigate = useNavigate();
+
+  const handleSongHealed = useCallback((songId: string, healed: { youtube_id: string; thumbnail: string | null }) => {
+    const applyHeal = (song: Song) => song.id === songId
+      ? { ...song, youtube_id: healed.youtube_id, album_art_url: healed.thumbnail ?? song.album_art_url }
+      : song;
+    setSongs((current) => current.map(applyHeal));
+    setHistory((current) => current.map(applyHeal));
+  }, []);
+
+  const handleSongBroken = useCallback((songId: string) => {
+    setSongs((current) => current.filter((song) => song.id !== songId));
+    setHistory((current) => current.filter((song) => song.id !== songId));
+  }, []);
 
   // Show the onboarding wizard the first time a user lands on the dashboard
   // after sign-up. We trust the `onboarding_completed` flag on profiles so the
@@ -376,7 +431,7 @@ const Dashboard = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">6 songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · refresh for a new mix.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
+                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                 </div>
               </section>
             )}
@@ -389,7 +444,7 @@ const Dashboard = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">3 stretch picks above <span className="font-semibold">{userLevel}</span> — fully unlocked, dive in whenever you're feeling brave.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {challenging.map((s) => <SongCard key={s.id} s={s} challenge />)}
+                  {challenging.map((s) => <SongCard key={s.id} s={s} challenge onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                 </div>
               </section>
             )}
@@ -403,7 +458,7 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground mb-4">The last 6 songs you opened — jump right back in.</p>
                 {history.length > 0 ? (
                   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {history.map((s) => <SongCard key={s.id} s={s} />)}
+                    {history.map((s) => <SongCard key={s.id} s={s} onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                   </div>
                 ) : (
                   <Card className="glass p-6 text-sm text-muted-foreground">
