@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,6 +206,19 @@ const Dashboard = () => {
   const [slang, setSlang] = useState<Slang | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const navigate = useNavigate();
+
+  const handleSongHealed = useCallback((songId: string, healed: { youtube_id: string; thumbnail: string | null }) => {
+    const applyHeal = (song: Song) => song.id === songId
+      ? { ...song, youtube_id: healed.youtube_id, album_art_url: healed.thumbnail ?? song.album_art_url }
+      : song;
+    setSongs((current) => current.map(applyHeal));
+    setHistory((current) => current.map(applyHeal));
+  }, []);
+
+  const handleSongBroken = useCallback((songId: string) => {
+    setSongs((current) => current.filter((song) => song.id !== songId));
+    setHistory((current) => current.filter((song) => song.id !== songId));
+  }, []);
 
   // Show the onboarding wizard the first time a user lands on the dashboard
   // after sign-up. We trust the `onboarding_completed` flag on profiles so the
@@ -418,7 +431,7 @@ const Dashboard = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">6 songs picked for you · tuned for <span className="font-semibold text-primary">{userLevel}</span> · refresh for a new mix.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} />)}
+                  {recommendedFinal.map((s) => <SongCard key={s.id} s={s} challenge={fillerIds.has(s.id)} onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                 </div>
               </section>
             )}
@@ -431,7 +444,7 @@ const Dashboard = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">3 stretch picks above <span className="font-semibold">{userLevel}</span> — fully unlocked, dive in whenever you're feeling brave.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {challenging.map((s) => <SongCard key={s.id} s={s} challenge />)}
+                  {challenging.map((s) => <SongCard key={s.id} s={s} challenge onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                 </div>
               </section>
             )}
@@ -445,7 +458,7 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground mb-4">The last 6 songs you opened — jump right back in.</p>
                 {history.length > 0 ? (
                   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {history.map((s) => <SongCard key={s.id} s={s} />)}
+                    {history.map((s) => <SongCard key={s.id} s={s} onHealed={handleSongHealed} onBroken={handleSongBroken} />)}
                   </div>
                 ) : (
                   <Card className="glass p-6 text-sm text-muted-foreground">
