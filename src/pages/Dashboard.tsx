@@ -156,6 +156,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { progress } = useProgress();
   const [songs, setSongs] = useState<Song[]>([]);
+  const [history, setHistory] = useState<Song[]>([]);
   // Bumped on every mount so the Recommended shelf reshuffles per page load
   // without causing a re-render on unrelated state changes (stable for the
   // lifetime of this Dashboard instance → no layout shifts).
