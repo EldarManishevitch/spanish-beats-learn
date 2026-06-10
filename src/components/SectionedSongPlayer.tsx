@@ -265,6 +265,19 @@ export const SectionedSongPlayer = ({
             </button>
           );
         })}
+        {!sectionsReady && fullSong && (
+          <div
+            className="px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 border-2 border-primary/40 bg-primary/5 text-primary animate-fade-in"
+            role="status"
+            aria-live="polite"
+            title="Section analysis in progress"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin drop-shadow-[0_0_6px_hsl(var(--primary))]" />
+            <span className="drop-shadow-[0_0_4px_hsl(var(--primary)/0.6)]">
+              AI is analyzing the song structure… Advanced learning modes coming up next! 🪄
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
