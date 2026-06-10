@@ -156,6 +156,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { progress } = useProgress();
   const [songs, setSongs] = useState<Song[]>([]);
+  const [history, setHistory] = useState<Song[]>([]);
   // Bumped on every mount so the Recommended shelf reshuffles per page load
   // without causing a re-render on unrelated state changes (stable for the
   // lifetime of this Dashboard instance → no layout shifts).
@@ -194,8 +195,23 @@ const Dashboard = () => {
     setSongs((data ?? []).filter((s) => Boolean(s.youtube_id)));
   };
 
+  const loadHistory = async () => {
+    if (!user) { setHistory([]); return; }
+    const { data } = await supabase
+      .from("user_search_history")
+      .select("viewed_at, song:songs(*)")
+      .eq("user_id", user.id)
+      .order("viewed_at", { ascending: false })
+      .limit(6);
+    const rows = ((data ?? []) as Array<{ song: Song | null }>)
+      .map((r) => r.song)
+      .filter((s): s is Song => Boolean(s && s.youtube_id));
+    setHistory(rows);
+  };
+
   useEffect(() => {
     loadSongs();
+    loadHistory();
     supabase
       .from("slang_dictionary")
       .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
@@ -205,8 +221,8 @@ const Dashboard = () => {
         if (data?.length) setSlang(data[Math.floor(Math.random() * data.length)] as Slang);
       });
 
-    const onGenerated = () => loadSongs();
-    const onVisible = () => { if (document.visibilityState === "visible") loadSongs(); };
+    const onGenerated = () => { loadSongs(); loadHistory(); };
+    const onVisible = () => { if (document.visibilityState === "visible") { loadSongs(); loadHistory(); } };
     window.addEventListener("song-generated", onGenerated);
     window.addEventListener("focus", onGenerated);
     document.addEventListener("visibilitychange", onVisible);
@@ -215,7 +231,8 @@ const Dashboard = () => {
       window.removeEventListener("focus", onGenerated);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [user]);
+
 
   const matchedSong = useMemo(() => {
     if (!slang?.example_song_title) return null;
@@ -346,10 +363,8 @@ const Dashboard = () => {
         // Strictly 6 randomized picks per page load.
         const recommendedFinal = shuffledAt.slice(0, 6);
         const fillerIds = new Set<string>();
-        const challenging = shuffledAbove;
-
-
-
+        // Strictly 3 randomized challenge picks per page load.
+        const challenging = shuffledAbove.slice(0, 3);
 
         return (
           <>
@@ -367,15 +382,34 @@ const Dashboard = () => {
             )}
 
             {challenging.length > 0 && (
-              <section>
+              <section className="mb-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Rocket className="h-5 w-5 text-accent" />
                   <h2 className="text-2xl font-bold">Explore Next Challenges 🚀</h2>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">A stretch above <span className="font-semibold">{userLevel}</span> — fully unlocked, dive in whenever you're feeling brave.</p>
+                <p className="text-sm text-muted-foreground mb-4">3 stretch picks above <span className="font-semibold">{userLevel}</span> — fully unlocked, dive in whenever you're feeling brave.</p>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {challenging.map((s) => <SongCard key={s.id} s={s} challenge />)}
                 </div>
+              </section>
+            )}
+
+            {user && (
+              <section className="mb-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xl" aria-hidden>🎧</span>
+                  <h2 className="text-2xl font-bold">Your Search History</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">The last 6 songs you opened — jump right back in.</p>
+                {history.length > 0 ? (
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {history.map((s) => <SongCard key={s.id} s={s} />)}
+                  </div>
+                ) : (
+                  <Card className="glass p-6 text-sm text-muted-foreground">
+                    Nothing here yet — open any song above and it'll show up here for quick access.
+                  </Card>
+                )}
               </section>
             )}
 

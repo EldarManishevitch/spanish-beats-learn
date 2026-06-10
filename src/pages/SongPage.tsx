@@ -79,6 +79,17 @@ const SongPage = () => {
       });
     }
     loadVocab();
+    // Log this song view to the per-user search history so the Dashboard
+    // "Your Search History" shelf can surface recently opened tracks.
+    if (user && id) {
+      supabase
+        .from("user_search_history")
+        .upsert(
+          { user_id: user.id, song_id: id, viewed_at: new Date().toISOString() },
+          { onConflict: "user_id,song_id" },
+        )
+        .then(({ error }) => { if (error) console.error("search history upsert failed", error); });
+    }
   }, [id, user]);
 
   // Streak is intentionally NOT updated here. It is only touched on quiz completion.

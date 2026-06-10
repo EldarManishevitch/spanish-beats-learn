@@ -364,6 +364,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_search_history: {
+        Row: {
+          id: string
+          song_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          song_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          song_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_search_history_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_search_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_vocab_stats: {
         Row: {
           correct_count: number
