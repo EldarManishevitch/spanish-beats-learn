@@ -51,7 +51,7 @@ const PICKS: Pick[] = [
     artist: "Romeo Santos",
     level: "Beginner",
     slang: "\"eres mía\" = you are mine · \"chin\" = a little bit",
-    view: "",
+    
     why: "The chorus is two words repeated for emphasis — the easiest way to internalize the verb \"ser\" in second person. Bonus: a Dominican slang word (\"chin\") slipped into every verse.",
   },
   {
