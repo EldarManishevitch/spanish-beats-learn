@@ -205,13 +205,13 @@ const Landing = () => {
                   type="button"
                   onClick={play}
                   aria-label={`Play 10-second preview of ${PREVIEW.title}`}
-                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-black/30 via-black/50 to-black/70 hover:from-black/20 hover:via-black/40 hover:to-black/60 transition-colors group"
+                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-black/55 via-black/65 to-black/80 hover:from-black/45 hover:via-black/55 hover:to-black/70 transition-colors group"
                 >
                   <span className="h-20 w-20 rounded-full bg-primary flex items-center justify-center shadow-soft-lg group-hover:scale-110 transition-transform">
                     <Play className="h-9 w-9 text-primary-foreground fill-primary-foreground ml-1" />
                   </span>
-                  <span className="text-white font-semibold text-lg drop-shadow">{PREVIEW.title}</span>
-                  <span className="text-white/80 text-sm">{PREVIEW.artist} · 10s preview</span>
+                  <span className="text-white font-semibold text-lg drop-shadow-md">{PREVIEW.title}</span>
+                  <span className="text-white text-sm drop-shadow-md">{PREVIEW.artist} · 10s preview</span>
                 </button>
               )}
               {playing && (
