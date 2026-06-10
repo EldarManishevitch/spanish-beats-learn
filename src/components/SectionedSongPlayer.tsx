@@ -226,7 +226,11 @@ export const SectionedSongPlayer = ({
     let cancelled = false;
     setVideoReady(false);
     const currentId = activeYoutubeId;
-    if (!currentId) return () => { cancelled = true; };
+    if (!currentId) {
+      try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
+      playerRef.current = null;
+      return () => { cancelled = true; };
+    }
     setCheckingVideo(true);
     checkYouTubeVideoBroken(currentId).then((isBroken) => {
       if (cancelled) return;
