@@ -333,7 +333,7 @@ const Dashboard = () => {
         // user's current CEFR level. Higher- and lower-level songs are excluded.
         const atLevel = songs.filter((s) => songCefr(s) === userLevel);
         const above = songs.filter((s) => (CEFR_RANK[songCefr(s)] ?? 2) > userRank);
-        const seed = `${user?.id ?? "guest"}:${userLevel}:${todayKey()}`;
+        const seed = `${user?.id ?? "guest"}:${userLevel}:${shuffleNonce}`;
         // Prioritize curated catalog defaults so the shelf is populated from
         // sign-up, then mix in any ad-hoc user-searched songs at the same level.
         const isCatalog = (s: Song) => Boolean((s as Song & { is_catalog_default?: boolean }).is_catalog_default);
@@ -341,7 +341,8 @@ const Dashboard = () => {
         const userAt = atLevel.filter((s) => !isCatalog(s));
         const shuffledAt = [...seededShuffle(catalogAt, seed), ...seededShuffle(userAt, seed + ":user")];
         const shuffledAbove = seededShuffle(above, seed + ":above");
-        const recommendedFinal = shuffledAt.slice(0, 18);
+        // Strictly 6 randomized picks per page load.
+        const recommendedFinal = shuffledAt.slice(0, 6);
         const fillerIds = new Set<string>();
         const challenging = shuffledAbove;
 
