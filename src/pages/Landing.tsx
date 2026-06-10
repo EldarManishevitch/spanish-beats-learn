@@ -80,26 +80,36 @@ const Landing = () => {
   const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    loadYouTubeAPI().then(() => {
-      if (cancelled || !containerRef.current) return;
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        videoId: PREVIEW.youtubeId,
-        playerVars: { controls: 0, modestbranding: 1, rel: 0, playsinline: 1, start: PREVIEW.startSeconds },
-        events: { onReady: () => setPlayerReady(true) },
-      });
-    });
     return () => {
-      cancelled = true;
       if (stopTimer.current) window.clearTimeout(stopTimer.current);
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = null;
     };
   }, []);
 
-  const play = () => {
-    if (!playerReady || !playerRef.current) return;
+  const ensurePlayer = (): Promise<void> =>
+    new Promise((resolve) => {
+      if (playerReady && playerRef.current) return resolve();
+      loadYouTubeAPI().then(() => {
+        if (!containerRef.current) return resolve();
+        if (playerRef.current) return resolve();
+        playerRef.current = new window.YT.Player(containerRef.current, {
+          videoId: PREVIEW.youtubeId,
+          playerVars: { controls: 0, modestbranding: 1, rel: 0, playsinline: 1, start: PREVIEW.startSeconds },
+          events: {
+            onReady: () => {
+              setPlayerReady(true);
+              resolve();
+            },
+          },
+        });
+      });
+    });
+
+  const play = async () => {
     try {
+      await ensurePlayer();
+      if (!playerRef.current) return;
       playerRef.current.seekTo(PREVIEW.startSeconds, true);
       playerRef.current.playVideo();
       setPlaying(true);
@@ -113,6 +123,7 @@ const Landing = () => {
       console.error("preview play failed", e);
     }
   };
+
 
   const handleGoogle = async () => {
     setSigningIn(true);
