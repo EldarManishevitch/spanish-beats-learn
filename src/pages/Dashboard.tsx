@@ -195,8 +195,23 @@ const Dashboard = () => {
     setSongs((data ?? []).filter((s) => Boolean(s.youtube_id)));
   };
 
+  const loadHistory = async () => {
+    if (!user) { setHistory([]); return; }
+    const { data } = await supabase
+      .from("user_search_history")
+      .select("viewed_at, song:songs(*)")
+      .eq("user_id", user.id)
+      .order("viewed_at", { ascending: false })
+      .limit(6);
+    const rows = ((data ?? []) as Array<{ song: Song | null }>)
+      .map((r) => r.song)
+      .filter((s): s is Song => Boolean(s && s.youtube_id));
+    setHistory(rows);
+  };
+
   useEffect(() => {
     loadSongs();
+    loadHistory();
     supabase
       .from("slang_dictionary")
       .select("term, contextual_meaning, example_usage, example_song_title, example_song_artist, lyrics_snippet, literal_meaning, english_equivalent, lyrics_snippet_translation")
@@ -206,8 +221,8 @@ const Dashboard = () => {
         if (data?.length) setSlang(data[Math.floor(Math.random() * data.length)] as Slang);
       });
 
-    const onGenerated = () => loadSongs();
-    const onVisible = () => { if (document.visibilityState === "visible") loadSongs(); };
+    const onGenerated = () => { loadSongs(); loadHistory(); };
+    const onVisible = () => { if (document.visibilityState === "visible") { loadSongs(); loadHistory(); } };
     window.addEventListener("song-generated", onGenerated);
     window.addEventListener("focus", onGenerated);
     document.addEventListener("visibilitychange", onVisible);
@@ -216,7 +231,8 @@ const Dashboard = () => {
       window.removeEventListener("focus", onGenerated);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [user]);
+
 
   const matchedSong = useMemo(() => {
     if (!slang?.example_song_title) return null;
