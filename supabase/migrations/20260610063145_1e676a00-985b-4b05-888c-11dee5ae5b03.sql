@@ -1,0 +1,2 @@
+REVOKE UPDATE ON public.profiles FROM authenticated;
+GRANT UPDATE (display_name, avatar_url, learning_level, learning_goal, fav_genres, notifications_enabled, notifications_time, onboarding_completed, last_sent_variant_id) ON public.profiles TO authenticated;
