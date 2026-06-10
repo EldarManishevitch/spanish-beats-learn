@@ -188,12 +188,22 @@ const Landing = () => {
           {/* Video preview */}
           <Card className="glass lg:col-span-3 overflow-hidden p-0">
             <div className="relative aspect-video bg-black">
+              {!playing && (
+                <img
+                  src={`https://i.ytimg.com/vi/${PREVIEW.youtubeId}/hqdefault.jpg`}
+                  alt={`${PREVIEW.title} by ${PREVIEW.artist} — video preview`}
+                  width={1280}
+                  height={720}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
               <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none" />
               {!playing && (
                 <button
                   type="button"
                   onClick={play}
-                  disabled={!playerReady}
                   aria-label={`Play 10-second preview of ${PREVIEW.title}`}
                   className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-black/30 via-black/50 to-black/70 hover:from-black/20 hover:via-black/40 hover:to-black/60 transition-colors group"
                 >
