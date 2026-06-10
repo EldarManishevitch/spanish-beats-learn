@@ -96,6 +96,12 @@ export const SectionedSongPlayer = ({
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
+  // Active YouTube id (may be hot-swapped if the original is unavailable).
+  const [activeYoutubeId, setActiveYoutubeId] = useState(youtubeId);
+  const [healing, setHealing] = useState(false);
+  const healedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => { setActiveYoutubeId(youtubeId); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
+
 
   // Live copy of lines — seeded from props, then kept in sync via realtime so
   // section tags (is_chorus) unlock tabs without a page refresh.
