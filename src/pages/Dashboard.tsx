@@ -176,11 +176,15 @@ const Dashboard = () => {
   }, [user]);
 
   const loadSongs = async () => {
+    // Catalog defaults first so the "Recommended For Your Level" shelf is
+    // always fully populated from the curated A1–B2 baseline, then recent
+    // user-searched songs fill in below.
     const { data } = await supabase
       .from("songs")
       .select("*")
+      .order("is_catalog_default", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(120);
+      .limit(240);
     setSongs(data ?? []);
   };
 
