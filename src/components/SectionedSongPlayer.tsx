@@ -97,11 +97,22 @@ export const SectionedSongPlayer = ({
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
 
-  const sections = useMemo(() => splitSections(lines), [lines]);
+  // Live copy of lines — seeded from props, then kept in sync via realtime so
+  // section tags (is_chorus) unlock tabs without a page refresh.
+  const [liveLines, setLiveLines] = useState<Line[]>(lines);
+  useEffect(() => { setLiveLines(lines); }, [lines]);
+
+  const sections = useMemo(() => splitSections(liveLines), [liveLines]);
   const fullSong = useMemo<Section | null>(() => {
-    const sorted = [...lines].sort((a, b) => a.line_index - b.line_index);
+    const sorted = [...liveLines].sort((a, b) => a.line_index - b.line_index);
     return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
-  }, [lines]);
+  }, [liveLines]);
+
+  // Sections are "ready" once at least one line is tagged is_chorus=true.
+  // Until then we still render Full Song immediately and show a neon indicator
+  // where the chorus / verse tabs will appear.
+  const sectionsReady = sections.length > 0;
+
   // Tab order: Full Song → Verse 1 → Verse 2 → Chorus
   const tabSections = useMemo(() => {
     const order = ["full", "verse_1", "verse_2", "chorus"] as const;
@@ -123,6 +134,29 @@ export const SectionedSongPlayer = ({
   useEffect(() => {
     if (tabSections.length && !activeId) setActiveId(tabSections[0].id);
   }, [tabSections, activeId]);
+
+  // Realtime: refetch lines whenever any lyric_line for this song changes
+  // (e.g. background section-tagging flips is_chorus from false → true).
+  useEffect(() => {
+    if (!songId) return;
+    const refetch = async () => {
+      const { data } = await supabase
+        .from("lyric_lines")
+        .select("id, line_index, spanish_text, pronunciation, english_translation, start_seconds, end_seconds, is_chorus")
+        .eq("song_id", songId)
+        .order("line_index");
+      if (data && data.length) setLiveLines(data as Line[]);
+    };
+    const channel = supabase
+      .channel(`lyric-lines-${songId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lyric_lines", filter: `song_id=eq.${songId}` },
+        () => { refetch(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [songId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,6 +265,19 @@ export const SectionedSongPlayer = ({
             </button>
           );
         })}
+        {!sectionsReady && fullSong && (
+          <div
+            className="px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 border-2 border-primary/40 bg-primary/5 text-primary animate-fade-in"
+            role="status"
+            aria-live="polite"
+            title="Section analysis in progress"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin drop-shadow-[0_0_6px_hsl(var(--primary))]" />
+            <span className="drop-shadow-[0_0_4px_hsl(var(--primary)/0.6)]">
+              AI is analyzing the song structure… Advanced learning modes coming up next! 🪄
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
