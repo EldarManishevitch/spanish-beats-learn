@@ -256,8 +256,9 @@ export const SectionedSongPlayer = ({
 
       player.on("stateChange", (event) => {
         if (cancelled) return;
-        handlePlayerStateChange({ data: event.data });
+        handlePlayerStateChange({ data: (event as unknown as { data: number }).data });
       });
+
 
       player.on("error", (event) => {
         const code = (event as unknown as { data: number })?.data;
