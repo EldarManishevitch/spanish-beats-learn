@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import YouTubePlayerFactory from "youtube-player";
 import type { YouTubePlayer as YouTubePlayerInstance } from "youtube-player/dist/types";
+
 import { TranslateWord } from "./TranslateWord";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
