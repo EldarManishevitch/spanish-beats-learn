@@ -1,26 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * useLyricsSync — event-driven bridge between a YouTube IFrame player and
- * the lyrics view. Polls `getCurrentTime()` via requestAnimationFrame while
- * the player is in the PLAYING state, and stops immediately on pause/end.
+ * useLyricsSync — event-driven bridge between the YouTube IFrame Player API
+ * and the lyrics view. Subscribes to the player's stateChange events; while
+ * the player is in state PLAYING (1) it runs a requestAnimationFrame loop
+ * that reads `getCurrentTime()` and pushes the value into `currentPlaybackTime`.
  *
- * Usage:
- *   const { currentPlaybackTime, handlePlayerStateChange, registerPlayer } =
- *     useLyricsSync();
- *
- *   // In YT.Player events:
- *   onReady:  (e) => registerPlayer(e.target),
- *   onStateChange: handlePlayerStateChange,
+ * Supports the `youtube-player` npm wrapper (async getCurrentTime) and the
+ * raw `window.YT.Player` instance (sync getCurrentTime). Both code paths are
+ * handled transparently.
  */
+type Awaitable<T> = T | Promise<T>;
 export type YTPlayerLike = {
-  getCurrentTime?: () => number;
+  getCurrentTime?: () => Awaitable<number>;
 };
 
 export const useLyricsSync = () => {
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
   const playerRef = useRef<YTPlayerLike | null>(null);
   const rafRef = useRef<number | null>(null);
+  const pendingRef = useRef(false);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -29,19 +28,34 @@ export const useLyricsSync = () => {
     }
   }, []);
 
+  const pushTime = useCallback((t: unknown) => {
+    if (typeof t === "number" && !Number.isNaN(t)) {
+      setCurrentPlaybackTime(t);
+    }
+  }, []);
+
   const startLoop = useCallback(() => {
     if (rafRef.current != null) return;
     const tick = () => {
-      try {
-        const t = playerRef.current?.getCurrentTime?.();
-        if (typeof t === "number" && !Number.isNaN(t)) {
-          setCurrentPlaybackTime(t);
-        }
-      } catch { /* ignore */ }
+      const player = playerRef.current;
+      if (player && !pendingRef.current) {
+        try {
+          const result = player.getCurrentTime?.();
+          if (result && typeof (result as Promise<number>).then === "function") {
+            pendingRef.current = true;
+            (result as Promise<number>)
+              .then(pushTime)
+              .catch(() => { /* ignore */ })
+              .finally(() => { pendingRef.current = false; });
+          } else {
+            pushTime(result);
+          }
+        } catch { /* ignore */ }
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [pushTime]);
 
   const registerPlayer = useCallback((player: YTPlayerLike | null) => {
     playerRef.current = player;
@@ -56,13 +70,18 @@ export const useLyricsSync = () => {
     [startLoop, stopLoop],
   );
 
-  // Force an immediate sync (e.g. after a seek without resuming play).
   const syncNow = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
     try {
-      const t = playerRef.current?.getCurrentTime?.();
-      if (typeof t === "number") setCurrentPlaybackTime(t);
+      const result = player.getCurrentTime?.();
+      if (result && typeof (result as Promise<number>).then === "function") {
+        (result as Promise<number>).then(pushTime).catch(() => { /* ignore */ });
+      } else {
+        pushTime(result);
+      }
     } catch { /* ignore */ }
-  }, []);
+  }, [pushTime]);
 
   useEffect(() => stopLoop, [stopLoop]);
 

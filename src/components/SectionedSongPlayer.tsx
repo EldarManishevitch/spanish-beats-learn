@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import YouTubePlayerFactory from "youtube-player";
+import type { YouTubePlayer as YouTubePlayerInstance } from "youtube-player/dist/types";
+
 import { TranslateWord } from "./TranslateWord";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -7,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { checkYouTubeVideoBroken, healSongYoutubeVideo } from "@/lib/youtubeHealing";
 import { useLyricsSync } from "@/hooks/useLyricsSync";
+
 
 
 type Line = {
@@ -26,39 +30,8 @@ type Section = {
   lines: Line[];
 };
 
-type YouTubePlayer = {
-  destroy?: () => void;
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-  playVideo: () => void;
-  pauseVideo: () => void;
-  getCurrentTime?: () => number;
-};
+type YouTubePlayer = YouTubePlayerInstance;
 
-
-declare global {
-  interface Window {
-    __ytApiLoading?: boolean;
-    __ytApiReady?: boolean;
-    __ytReadyCallbacks?: Array<() => void>;
-  }
-}
-
-const loadYouTubeAPI = (): Promise<void> =>
-  new Promise((resolve) => {
-    if (window.__ytApiReady && window.YT?.Player) return resolve();
-    window.__ytReadyCallbacks = window.__ytReadyCallbacks || [];
-    window.__ytReadyCallbacks.push(resolve);
-    if (window.__ytApiLoading) return;
-    window.__ytApiLoading = true;
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
-    window.onYouTubeIframeAPIReady = () => {
-      window.__ytApiReady = true;
-      window.__ytReadyCallbacks?.forEach((cb) => cb());
-      window.__ytReadyCallbacks = [];
-    };
-  });
 
 const NeonLoader = ({ label }: { label: string }) => (
   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/40 backdrop-blur-sm rounded-2xl z-10">
@@ -101,7 +74,9 @@ export const SectionedSongPlayer = ({
 }) => {
   const { user } = useAuth();
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
   const sectionEndTimer = useRef<number | null>(null);
+
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
@@ -248,6 +223,7 @@ export const SectionedSongPlayer = ({
     if (!currentId) {
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = null;
+      registerPlayer(null);
       return () => { cancelled = true; };
     }
     setCheckingVideo(true);
@@ -259,39 +235,40 @@ export const SectionedSongPlayer = ({
         healVideo(currentId, 90);
         return;
       }
-    loadYouTubeAPI().then(() => {
-      if (cancelled) return;
+      const host = playerHostRef.current;
+      if (!host) return;
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
-      playerRef.current = new window.YT.Player("yt-player", {
+
+      // Programmatic init via the official `youtube-player` wrapper.
+      // It auto-injects the IFrame API, builds a stable iframe inside the
+      // ref'd <div>, and exposes a clean async API with .on() events.
+      const player = YouTubePlayerFactory(host, {
         videoId: currentId,
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
-        events: {
-          onReady: (event: { target: unknown }) => {
-            if (cancelled) return;
-            setVideoReady(true);
-            registerPlayer(event?.target as { getCurrentTime?: () => number });
-            syncNow();
-          },
-          onStateChange: (event: { data: number }) => {
-            // YT.PlayerState: PLAYING = 1 → start rAF, anything else → stop.
-            if (cancelled) return;
-            handlePlayerStateChange(event);
-          },
-
-          // Bound directly to the native YT IFrame API onError event.
-          // Codes: 2 = invalid videoId, 5 = HTML5 player error,
-          // 100 = removed/private, 101/150 = embed/region blocked.
-          onError: (event: { data: number }) => {
-            console.log("YouTube Player Error Intercepted:", event?.data, "for videoId:", currentId);
-            const code = event?.data;
-            if ([2, 5, 100, 101, 150].includes(code)) {
-              healVideo(currentId, code);
-            }
-          },
-
-        },
       });
-    });
+      playerRef.current = player;
+
+      player.on("ready", () => {
+        if (cancelled) return;
+        setVideoReady(true);
+        registerPlayer(player);
+        syncNow();
+      });
+
+      player.on("stateChange", (event) => {
+        if (cancelled) return;
+        handlePlayerStateChange({ data: (event as unknown as { data: number }).data });
+      });
+
+
+      player.on("error", (event) => {
+        const code = (event as unknown as { data: number })?.data;
+        console.log("YouTube Player Error Intercepted:", code, "for videoId:", currentId);
+        if ([2, 5, 100, 101, 150].includes(code)) {
+          healVideo(currentId, code);
+        }
+      });
+
     });
     return () => {
       cancelled = true;
@@ -299,8 +276,10 @@ export const SectionedSongPlayer = ({
       if (sectionEndTimer.current) window.clearTimeout(sectionEndTimer.current);
       try { playerRef.current?.destroy?.(); } catch { /* ignore */ }
       playerRef.current = null;
+      registerPlayer(null);
     };
-  }, [activeYoutubeId]);
+  }, [activeYoutubeId, handlePlayerStateChange, registerPlayer, syncNow]);
+
 
 
 
@@ -327,21 +306,11 @@ export const SectionedSongPlayer = ({
     setActiveId(id);
   };
 
-  if (!tabSections.length) {
-    return (
-      <div className="grid lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3">
-          <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {activeYoutubeId ? (!videoReady && <NeonLoader label={healing ? "Finding a working version…" : checkingVideo ? "Checking video availability…" : "Loading video…"} />) : <NeonLoader label="Finding a working version…" />}
-            <div id="yt-player" className="w-full h-full" />
-          </div>
-        </div>
-        <div className="lg:col-span-2 bg-white ritmo-border shadow-soft rounded-2xl p-5 text-sm text-muted-foreground">
-          Lyrics are still loading…
-        </div>
-      </div>
-    );
-  }
+  // NOTE: no early-return for empty tabSections. The player container is a
+  // single stable <div ref={playerHostRef}> rendered exactly once in the main
+  // tree below — unmounting / remounting it (as the previous early-return
+  // did) orphans the iframe and silently breaks getCurrentTime().
+
 
   return (
     <div className="space-y-5">
@@ -395,7 +364,7 @@ export const SectionedSongPlayer = ({
         <div className="lg:col-span-3">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
             {activeYoutubeId ? (!videoReady && <NeonLoader label={healing ? "Finding a working version…" : checkingVideo ? "Checking video availability…" : "Loading video…"} />) : <NeonLoader label="Finding a working version…" />}
-            <div id="yt-player" className="w-full h-full" />
+            <div ref={playerHostRef} className="w-full h-full" />
           </div>
           {active && (
             <div className="mt-3 flex flex-wrap gap-2 items-center">
@@ -431,6 +400,10 @@ export const SectionedSongPlayer = ({
           </div>
 
           <div className="space-y-3 px-5 py-4">
+            {!active && (
+              <p className="text-sm text-muted-foreground">Lyrics are still loading…</p>
+            )}
+
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
               const isActive =
