@@ -314,45 +314,47 @@ export const SectionedSongPlayer = ({
 
   return (
     <div className="space-y-5">
-      <div role="tablist" aria-label="Song sections" className="flex flex-wrap gap-2">
-        {tabSections.map((s) => {
-          const isActive = active?.id === s.id;
-          const isDone = quizPassed;
-          return (
-            <button
-              key={s.id}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => switchTo(s.id)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
-                isActive
-                  ? "bg-primary text-primary-foreground border-primary shadow-soft"
-                  : "bg-card border-border hover:border-primary/40"
-              }`}
-            >
-              {s.id === "chorus" || s.id === "full" ? <Sparkles className="h-3.5 w-3.5" /> : <Music className="h-3.5 w-3.5" />}
-              {s.label}
-              {isDone && (
-                <span
-                  className="ml-1 h-4 w-4 rounded-full bg-accent flex items-center justify-center"
-                  title="Quiz completed"
-                >
-                  <Check className="h-2.5 w-2.5 text-accent-foreground" />
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="sticky top-0 z-50 -mx-2 px-2 py-3 backdrop-blur-md bg-background/90 border-b border-border/40">
+        <div role="tablist" aria-label="Song sections" className="flex flex-wrap gap-2">
+          {tabSections.map((s) => {
+            const isActive = active?.id === s.id;
+            const isDone = quizPassed;
+            return (
+              <button
+                key={s.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => switchTo(s.id)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary shadow-soft"
+                    : "bg-card border-border hover:border-primary/40"
+                }`}
+              >
+                {s.id === "chorus" || s.id === "full" ? <Sparkles className="h-3.5 w-3.5" /> : <Music className="h-3.5 w-3.5" />}
+                {s.label}
+                {isDone && (
+                  <span
+                    className="ml-1 h-4 w-4 rounded-full bg-accent flex items-center justify-center"
+                    title="Quiz completed"
+                  >
+                    <Check className="h-2.5 w-2.5 text-accent-foreground" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         {!sectionsReady && fullSong && (
           <div
-            className="px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 border-2 border-primary/40 bg-primary/5 text-primary animate-fade-in"
+            className="mt-2 px-4 py-2 rounded-full text-xs font-medium inline-flex items-center gap-2 border-2 border-primary/40 bg-primary/10 backdrop-blur-md text-primary animate-fade-in"
             role="status"
             aria-live="polite"
             title="Section analysis in progress"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin drop-shadow-[0_0_6px_hsl(var(--primary))]" />
             <span className="drop-shadow-[0_0_4px_hsl(var(--primary)/0.6)]">
-              AI is analyzing the song structure… Advanced learning modes coming up next! 🪄
+              AI is organizing chapters… Advanced learning modes coming up next! 🪄
             </span>
           </div>
         )}
@@ -382,7 +384,7 @@ export const SectionedSongPlayer = ({
           )}
         </div>
 
-        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
+        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border sticky top-0 bg-white z-[1]">
             <span className="text-sm font-semibold">{active?.label}</span>
             <label className="flex items-center gap-2 cursor-pointer">
