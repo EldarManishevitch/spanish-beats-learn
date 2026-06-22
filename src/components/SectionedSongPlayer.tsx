@@ -305,21 +305,11 @@ export const SectionedSongPlayer = ({
     setActiveId(id);
   };
 
-  if (!tabSections.length) {
-    return (
-      <div className="grid lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3">
-          <div className="relative aspect-video rounded-2xl overflow-hidden bg-white ritmo-border shadow-soft-lg">
-            {activeYoutubeId ? (!videoReady && <NeonLoader label={healing ? "Finding a working version…" : checkingVideo ? "Checking video availability…" : "Loading video…"} />) : <NeonLoader label="Finding a working version…" />}
-            <div id="yt-player" className="w-full h-full" />
-          </div>
-        </div>
-        <div className="lg:col-span-2 bg-white ritmo-border shadow-soft rounded-2xl p-5 text-sm text-muted-foreground">
-          Lyrics are still loading…
-        </div>
-      </div>
-    );
-  }
+  // NOTE: no early-return for empty tabSections. The player container is a
+  // single stable <div ref={playerHostRef}> rendered exactly once in the main
+  // tree below — unmounting / remounting it (as the previous early-return
+  // did) orphans the iframe and silently breaks getCurrentTime().
+
 
   return (
     <div className="space-y-5">
