@@ -29,39 +29,8 @@ type Section = {
   lines: Line[];
 };
 
-type YouTubePlayer = {
-  destroy?: () => void;
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-  playVideo: () => void;
-  pauseVideo: () => void;
-  getCurrentTime?: () => number;
-};
+type YouTubePlayer = YouTubePlayerInstance;
 
-
-declare global {
-  interface Window {
-    __ytApiLoading?: boolean;
-    __ytApiReady?: boolean;
-    __ytReadyCallbacks?: Array<() => void>;
-  }
-}
-
-const loadYouTubeAPI = (): Promise<void> =>
-  new Promise((resolve) => {
-    if (window.__ytApiReady && window.YT?.Player) return resolve();
-    window.__ytReadyCallbacks = window.__ytReadyCallbacks || [];
-    window.__ytReadyCallbacks.push(resolve);
-    if (window.__ytApiLoading) return;
-    window.__ytApiLoading = true;
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
-    window.onYouTubeIframeAPIReady = () => {
-      window.__ytApiReady = true;
-      window.__ytReadyCallbacks?.forEach((cb) => cb());
-      window.__ytReadyCallbacks = [];
-    };
-  });
 
 const NeonLoader = ({ label }: { label: string }) => (
   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/40 backdrop-blur-sm rounded-2xl z-10">
