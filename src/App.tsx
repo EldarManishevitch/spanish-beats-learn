@@ -48,6 +48,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ScrollToTop />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reggaeton-slang-guide" element={<ReggaetonSlangGuide />} />
