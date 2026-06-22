@@ -399,6 +399,10 @@ export const SectionedSongPlayer = ({
           </div>
 
           <div className="space-y-3 px-5 py-4">
+            {!active && (
+              <p className="text-sm text-muted-foreground">Lyrics are still loading…</p>
+            )}
+
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
               const isActive =
