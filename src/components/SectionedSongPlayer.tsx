@@ -6,6 +6,8 @@ import { Loader2, Check, Sparkles, Music } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { checkYouTubeVideoBroken, healSongYoutubeVideo } from "@/lib/youtubeHealing";
+import { useLyricsSync } from "@/hooks/useLyricsSync";
+
 
 type Line = {
   id: string;
