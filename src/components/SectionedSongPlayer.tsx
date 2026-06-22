@@ -384,8 +384,8 @@ export const SectionedSongPlayer = ({
           )}
         </div>
 
-        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-border sticky top-0 bg-white z-[1]">
+        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border sticky top-0 bg-white z-[1]">
             <span className="text-sm font-semibold">{active?.label}</span>
             <label className="flex items-center gap-2 cursor-pointer">
               <span className={`text-xs font-medium ${showEnglish ? "text-primary" : "text-muted-foreground"}`}>
@@ -399,7 +399,7 @@ export const SectionedSongPlayer = ({
             </label>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 px-5 py-4">
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
               return (
