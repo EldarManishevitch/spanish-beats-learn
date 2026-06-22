@@ -1,4 +1,7 @@
-// Search YouTube for songs (Audio-Only versions preferred)
+// Search YouTube for songs — quota-free scrape of the public web results page.
+// No more dependency on the official Data API v3 (which exhausts daily quota
+// at 100 search calls / project). We fetch https://www.youtube.com/results,
+// parse the embedded `ytInitialData` JSON, and extract videoRenderer items.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
@@ -44,12 +47,108 @@ function cleanYoutubeText(raw: string): string {
   return trimSeparators(s);
 }
 
+// --- Quota-free YouTube search via public results page scrape ---
+type ScrapedResult = {
+  youtube_id: string;
+  title: string;
+  channel: string;
+  thumbnail: string | null;
+  published_at: string | null;
+};
+
+const YT_HEADERS: HeadersInit = {
+  // Modern desktop UA — required for YouTube to return the rich
+  // `ytInitialData` JSON inline (instead of a stripped-down or consent page).
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept-Language": "en-US,en;q=0.9",
+  // CONSENT cookie bypasses the EU/UK GDPR consent interstitial that
+  // otherwise serves a different HTML shell with no search results.
+  "Cookie": "CONSENT=YES+cb.20210328-17-p0.en+FX+000",
+};
+
+function extractYtInitialData(html: string): unknown | null {
+  // YouTube embeds the SSR state as `var ytInitialData = {...};</script>` or
+  // `window["ytInitialData"] = {...};`. Match both forms.
+  const patterns = [
+    /var ytInitialData\s*=\s*(\{[\s\S]+?\});\s*<\/script>/,
+    /ytInitialData"?\]?\s*=\s*(\{[\s\S]+?\});\s*<\/script>/,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) {
+      try { return JSON.parse(m[1]); } catch { /* try next */ }
+    }
+  }
+  return null;
+}
+
+function walkVideoRenderers(node: unknown, out: ScrapedResult[]): void {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const item of node) walkVideoRenderers(item, out);
+    return;
+  }
+  const obj = node as Record<string, unknown>;
+  const vr = obj.videoRenderer as Record<string, unknown> | undefined;
+  if (vr && typeof vr.videoId === "string") {
+    const id = vr.videoId as string;
+    const titleRuns = (vr.title as { runs?: { text?: string }[] } | undefined)?.runs;
+    const title = titleRuns?.[0]?.text ?? "";
+    const owner = (vr.ownerText as { runs?: { text?: string }[] } | undefined)?.runs?.[0]?.text
+      ?? (vr.longBylineText as { runs?: { text?: string }[] } | undefined)?.runs?.[0]?.text
+      ?? "";
+    const thumbs = (vr.thumbnail as { thumbnails?: { url: string }[] } | undefined)?.thumbnails ?? [];
+    const thumb = thumbs[thumbs.length - 1]?.url ?? `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+    const published = (vr.publishedTimeText as { simpleText?: string } | undefined)?.simpleText ?? null;
+    if (id && title && !out.some((r) => r.youtube_id === id)) {
+      out.push({ youtube_id: id, title, channel: owner, thumbnail: thumb, published_at: published });
+    }
+  }
+  for (const key of Object.keys(obj)) walkVideoRenderers(obj[key], out);
+}
+
+async function scrapeYouTubeSearch(query: string): Promise<ScrapedResult[]> {
+  // sp=EgIQAQ%253D%253D filters to "videos only" (no channels/playlists).
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
+  const resp = await fetch(url, { headers: YT_HEADERS, redirect: "follow" });
+  if (!resp.ok) {
+    throw new Error(`YouTube returned HTTP ${resp.status}`);
+  }
+  const html = await resp.text();
+
+  // Primary path: parse ytInitialData and walk every videoRenderer in the tree.
+  const data = extractYtInitialData(html);
+  const out: ScrapedResult[] = [];
+  if (data) walkVideoRenderers(data, out);
+
+  // Fallback path: if ytInitialData wasn't found (rare layout change),
+  // regex-scan the raw HTML for video IDs and synthesize minimal rows.
+  if (out.length === 0) {
+    const seen = new Set<string>();
+    const idRe = /"videoId":"([A-Za-z0-9_-]{11})"/g;
+    let m: RegExpExecArray | null;
+    while ((m = idRe.exec(html)) !== null && out.length < 10) {
+      const id = m[1];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        youtube_id: id,
+        title: query,
+        channel: "",
+        thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+        published_at: null,
+      });
+    }
+  }
+  return out.slice(0, 10);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Require authenticated caller to protect YouTube API quota
+    // Require authenticated caller to protect the endpoint.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -75,42 +174,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
-    if (!YOUTUBE_API_KEY) {
-      console.error("youtube-search: YOUTUBE_API_KEY not configured");
-      return new Response(JSON.stringify({ error: "Server configuration error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Bias toward official single-track uploads ("official audio" / "topic" channels).
+    const query = `${q} official audio`;
+
+    let scraped: ScrapedResult[] = [];
+    try {
+      scraped = await scrapeYouTubeSearch(query);
+    } catch (err) {
+      console.error("youtube-search scrape failed", err);
+      // Retry once with a cleaner query (just the user's text, no biasing).
+      try {
+        scraped = await scrapeYouTubeSearch(q);
+      } catch (err2) {
+        console.error("youtube-search retry failed", err2);
+        // Contained failure — frontend healing flow expects a 200 with fallback flag.
+        return new Response(
+          JSON.stringify({ results: [], fallback: true, error: "YOUTUBE_SERVICE_UNAVAILABLE" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
-    // Bias toward official single-track uploads ("official audio" / "topic" channels)
-    // and stay within YouTube's Music category to block non-music channels.
-    const query = encodeURIComponent(`${q} official audio topic`);
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=10&q=${query}&key=${YOUTUBE_API_KEY}`;
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      const t = await resp.text();
-      console.error("YouTube API error", resp.status, t);
-      // Contain upstream failures (quota 429/403, 5xx) so the frontend's
-      // auto-heal and song search don't crash. Return 200 with a fallback flag.
-      const quotaExhausted = resp.status === 429 || resp.status === 403;
-      return new Response(
-        JSON.stringify({
-          results: [],
-          fallback: true,
-          error: quotaExhausted ? "YOUTUBE_QUOTA_EXCEEDED" : "YOUTUBE_SERVICE_UNAVAILABLE",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    const data = await resp.json();
-    const raw = (data.items ?? []).map((it: any) => ({
-      youtube_id: it.id.videoId,
-      title: cleanYoutubeText(it.snippet.title) || it.snippet.title,
-      channel: cleanYoutubeText(it.snippet.channelTitle) || it.snippet.channelTitle,
-      thumbnail: it.snippet.thumbnails?.medium?.url ?? it.snippet.thumbnails?.default?.url,
-      published_at: it.snippet.publishedAt,
-    })).filter((r: any) => r.youtube_id);
+    const raw = scraped.map((r) => ({
+      youtube_id: r.youtube_id,
+      title: cleanYoutubeText(r.title) || r.title,
+      channel: cleanYoutubeText(r.channel) || r.channel,
+      thumbnail: r.thumbnail,
+      published_at: r.published_at,
+    })).filter((r) => r.youtube_id);
 
     // Blocklist: compilations, award shows, full albums, playlists, mixes — not single tracks.
     const BLOCK = [
@@ -119,18 +210,16 @@ Deno.serve(async (req) => {
       "top 100", "top 50", "top 40", "top 20", "top 10", "best of", "lo mejor de",
       "1 hour", "2 hours", "live stream", "tribute", "homenaje",
     ];
-    const isBlocked = (r: any) => {
+    const isBlocked = (r: { title: string; channel: string }) => {
       const hay = `${r.title} ${r.channel}`.toLowerCase();
       return BLOCK.some((w) => hay.includes(w));
     };
-    // Drop blocked entries from the first 3 positions; keep the rest as-is at the tail
-    // so the next closest single-track match floats to the top.
+    // Drop blocked entries from the first 3 positions; keep the rest as-is at the tail.
     const head = raw.slice(0, 3);
     const tail = raw.slice(3);
-    const cleanHead = head.filter((r: any) => !isBlocked(r));
-    const skippedHead = head.filter((r: any) => isBlocked(r));
+    const cleanHead = head.filter((r) => !isBlocked(r));
+    const skippedHead = head.filter((r) => isBlocked(r));
     const results = [...cleanHead, ...tail, ...skippedHead];
-
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
