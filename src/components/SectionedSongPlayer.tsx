@@ -314,7 +314,7 @@ export const SectionedSongPlayer = ({
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-0 z-50 -mx-2 px-2 py-3 backdrop-blur-md bg-background/90 border-b border-border/40">
+      <div className="sticky top-16 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm">
         <div role="tablist" aria-label="Song sections" className="flex flex-wrap gap-2">
           {tabSections.map((s) => {
             const isActive = active?.id === s.id;
