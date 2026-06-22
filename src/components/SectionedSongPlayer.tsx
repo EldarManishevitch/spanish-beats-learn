@@ -440,27 +440,25 @@ export const SectionedSongPlayer = ({
                 <div
                   key={line.id}
                   ref={(el) => {
-                    if (isActive) {
-                      activeLineRef.current = el;
-                      if (el && lastScrolledLineId.current !== line.id) {
-                        lastScrolledLineId.current = line.id;
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }
+                    if (isActive && el && lastScrolledLineId.current !== line.id) {
+                      lastScrolledLineId.current = line.id;
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                   }}
-                  className={`rounded-lg px-2 py-1 transition-all duration-300 ${
+                  className={`rounded-lg px-3 py-2 transition-all duration-300 ${
                     isActive
-                      ? "opacity-100 scale-[1.01] bg-primary/5"
-                      : "opacity-40"
+                      ? "opacity-100 scale-[1.01] bg-neutral-900 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+                      : "opacity-30"
                   }`}
                 >
                   <p
                     className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
                       isActive
-                        ? "font-bold text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
-                        : "font-medium"
+                        ? "text-white font-bold opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                        : "font-medium text-gray-400"
                     }`}
                   >
+
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
