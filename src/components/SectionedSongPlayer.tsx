@@ -143,7 +143,24 @@ export const SectionedSongPlayer = ({
   // (score === total) flags every section as complete in the UI.
   const [quizPassed, setQuizPassed] = useState(false);
 
+  // Time-synced active line highlighting
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const activeLineRef = useRef<HTMLDivElement | null>(null);
+  const lastScrolledLineId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!videoReady) return;
+    const interval = window.setInterval(() => {
+      try {
+        const t = playerRef.current?.getCurrentTime?.();
+        if (typeof t === "number") setCurrentPlaybackTime(t);
+      } catch { /* ignore */ }
+    }, 150);
+    return () => window.clearInterval(interval);
+  }, [videoReady]);
+
   useEffect(() => { setHintActive(true); }, [songId]);
+
 
   useEffect(() => {
     if (tabSections.length && !activeId) setActiveId(tabSections[0].id);
