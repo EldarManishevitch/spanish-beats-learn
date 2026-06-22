@@ -260,12 +260,13 @@ export const SectionedSongPlayer = ({
       });
 
       player.on("error", (event) => {
-        console.log("YouTube Player Error Intercepted:", event?.data, "for videoId:", currentId);
-        const code = event?.data as number;
+        const code = (event as unknown as { data: number })?.data;
+        console.log("YouTube Player Error Intercepted:", code, "for videoId:", currentId);
         if ([2, 5, 100, 101, 150].includes(code)) {
           healVideo(currentId, code);
         }
       });
+
     });
     return () => {
       cancelled = true;
