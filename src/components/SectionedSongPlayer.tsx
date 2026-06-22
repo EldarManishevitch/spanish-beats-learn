@@ -384,7 +384,7 @@ export const SectionedSongPlayer = ({
           )}
         </div>
 
-        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[480px] overflow-y-auto">
+        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl p-5 max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border sticky top-0 bg-white z-[1]">
             <span className="text-sm font-semibold">{active?.label}</span>
             <label className="flex items-center gap-2 cursor-pointer">
