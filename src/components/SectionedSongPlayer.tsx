@@ -73,7 +73,9 @@ export const SectionedSongPlayer = ({
 }) => {
   const { user } = useAuth();
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
   const sectionEndTimer = useRef<number | null>(null);
+
   const [videoReady, setVideoReady] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [hintActive, setHintActive] = useState(true);
