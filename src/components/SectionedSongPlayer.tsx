@@ -6,6 +6,8 @@ import { Loader2, Check, Sparkles, Music } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { checkYouTubeVideoBroken, healSongYoutubeVideo } from "@/lib/youtubeHealing";
+import { useLyricsSync } from "@/hooks/useLyricsSync";
+
 
 type Line = {
   id: string;
@@ -143,23 +145,18 @@ export const SectionedSongPlayer = ({
   // (score === total) flags every section as complete in the UI.
   const [quizPassed, setQuizPassed] = useState(false);
 
-  // Time-synced active line highlighting — universal across every song.
-  // Polling is gated on YT.PlayerState.PLAYING (1) and ticks at 100ms.
-  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const activeLineRef = useRef<HTMLDivElement | null>(null);
+  // Time-synced active line highlighting — event-driven via useLyricsSync.
+  // The hook subscribes to YT.PlayerState changes and runs a rAF loop only
+  // while the player is in state PLAYING (1), reading getCurrentTime() each
+  // frame and pushing it into `currentPlaybackTime`.
+  const {
+    currentPlaybackTime,
+    registerPlayer,
+    handlePlayerStateChange,
+    syncNow,
+  } = useLyricsSync();
   const lastScrolledLineId = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!videoReady || !isPlaying) return;
-    const interval = window.setInterval(() => {
-      try {
-        const t = playerRef.current?.getCurrentTime?.();
-        if (typeof t === "number") setCurrentPlaybackTime(t);
-      } catch { /* ignore */ }
-    }, 100);
-    return () => window.clearInterval(interval);
-  }, [videoReady, isPlaying]);
 
 
   useEffect(() => { setHintActive(true); }, [songId]);
@@ -269,12 +266,18 @@ export const SectionedSongPlayer = ({
         videoId: currentId,
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
         events: {
-          onReady: () => { if (!cancelled) setVideoReady(true); },
-          onStateChange: (event: { data: number }) => {
-            // YT.PlayerState: PLAYING = 1
+          onReady: (event: { target: unknown }) => {
             if (cancelled) return;
-            setIsPlaying(event?.data === 1);
+            setVideoReady(true);
+            registerPlayer(event?.target as { getCurrentTime?: () => number });
+            syncNow();
           },
+          onStateChange: (event: { data: number }) => {
+            // YT.PlayerState: PLAYING = 1 → start rAF, anything else → stop.
+            if (cancelled) return;
+            handlePlayerStateChange(event);
+          },
+
           // Bound directly to the native YT IFrame API onError event.
           // Codes: 2 = invalid videoId, 5 = HTML5 player error,
           // 100 = removed/private, 101/150 = embed/region blocked.
@@ -437,27 +440,25 @@ export const SectionedSongPlayer = ({
                 <div
                   key={line.id}
                   ref={(el) => {
-                    if (isActive) {
-                      activeLineRef.current = el;
-                      if (el && lastScrolledLineId.current !== line.id) {
-                        lastScrolledLineId.current = line.id;
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }
+                    if (isActive && el && lastScrolledLineId.current !== line.id) {
+                      lastScrolledLineId.current = line.id;
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                   }}
-                  className={`rounded-lg px-2 py-1 transition-all duration-300 ${
+                  className={`rounded-lg px-3 py-2 transition-all duration-300 ${
                     isActive
-                      ? "opacity-100 scale-[1.01] bg-primary/5"
-                      : "opacity-40"
+                      ? "opacity-100 scale-[1.01] bg-neutral-900 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+                      : "opacity-30"
                   }`}
                 >
                   <p
                     className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
                       isActive
-                        ? "font-bold text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
-                        : "font-medium"
+                        ? "text-white font-bold opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                        : "font-medium text-gray-400"
                     }`}
                   >
+
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
