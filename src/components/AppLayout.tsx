@@ -43,7 +43,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border">
+      <header className="sticky top-0 z-40 bg-white border-b border-border shadow-sm">
         <div className="container flex h-16 items-center justify-between gap-2 flex-nowrap">
           <Link to="/" aria-label="Ritmo home" className="flex items-center gap-2 shrink-0">
             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-soft">
