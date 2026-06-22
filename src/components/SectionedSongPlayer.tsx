@@ -29,7 +29,9 @@ type YouTubePlayer = {
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   playVideo: () => void;
   pauseVideo: () => void;
+  getCurrentTime?: () => number;
 };
+
 
 declare global {
   interface Window {
