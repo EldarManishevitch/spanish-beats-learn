@@ -145,23 +145,18 @@ export const SectionedSongPlayer = ({
   // (score === total) flags every section as complete in the UI.
   const [quizPassed, setQuizPassed] = useState(false);
 
-  // Time-synced active line highlighting — universal across every song.
-  // Polling is gated on YT.PlayerState.PLAYING (1) and ticks at 100ms.
-  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const activeLineRef = useRef<HTMLDivElement | null>(null);
+  // Time-synced active line highlighting — event-driven via useLyricsSync.
+  // The hook subscribes to YT.PlayerState changes and runs a rAF loop only
+  // while the player is in state PLAYING (1), reading getCurrentTime() each
+  // frame and pushing it into `currentPlaybackTime`.
+  const {
+    currentPlaybackTime,
+    registerPlayer,
+    handlePlayerStateChange,
+    syncNow,
+  } = useLyricsSync();
   const lastScrolledLineId = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!videoReady || !isPlaying) return;
-    const interval = window.setInterval(() => {
-      try {
-        const t = playerRef.current?.getCurrentTime?.();
-        if (typeof t === "number") setCurrentPlaybackTime(t);
-      } catch { /* ignore */ }
-    }, 100);
-    return () => window.clearInterval(interval);
-  }, [videoReady, isPlaying]);
 
 
   useEffect(() => { setHintActive(true); }, [songId]);
