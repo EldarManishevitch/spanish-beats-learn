@@ -421,9 +421,34 @@ export const SectionedSongPlayer = ({
           <div className="space-y-3 px-5 py-4">
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
+              const isActive =
+                currentPlaybackTime >= line.start_seconds &&
+                currentPlaybackTime <= line.end_seconds;
               return (
-                <div key={line.id}>
-                  <p className="text-base md:text-lg font-medium leading-relaxed">
+                <div
+                  key={line.id}
+                  ref={(el) => {
+                    if (isActive) {
+                      activeLineRef.current = el;
+                      if (el && lastScrolledLineId.current !== line.id) {
+                        lastScrolledLineId.current = line.id;
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }
+                  }}
+                  className={`rounded-lg px-2 py-1 transition-all duration-300 ${
+                    isActive
+                      ? "opacity-100 scale-[1.01] bg-primary/5"
+                      : "opacity-40"
+                  }`}
+                >
+                  <p
+                    className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
+                      isActive
+                        ? "font-bold text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+                        : "font-medium"
+                    }`}
+                  >
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
@@ -442,6 +467,7 @@ export const SectionedSongPlayer = ({
               );
             })}
           </div>
+
         </div>
       </div>
     </div>
