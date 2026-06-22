@@ -143,21 +143,24 @@ export const SectionedSongPlayer = ({
   // (score === total) flags every section as complete in the UI.
   const [quizPassed, setQuizPassed] = useState(false);
 
-  // Time-synced active line highlighting
+  // Time-synced active line highlighting — universal across every song.
+  // Polling is gated on YT.PlayerState.PLAYING (1) and ticks at 100ms.
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const activeLineRef = useRef<HTMLDivElement | null>(null);
   const lastScrolledLineId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!videoReady) return;
+    if (!videoReady || !isPlaying) return;
     const interval = window.setInterval(() => {
       try {
         const t = playerRef.current?.getCurrentTime?.();
         if (typeof t === "number") setCurrentPlaybackTime(t);
       } catch { /* ignore */ }
-    }, 150);
+    }, 100);
     return () => window.clearInterval(interval);
-  }, [videoReady]);
+  }, [videoReady, isPlaying]);
+
 
   useEffect(() => { setHintActive(true); }, [songId]);
 
@@ -267,6 +270,11 @@ export const SectionedSongPlayer = ({
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
         events: {
           onReady: () => { if (!cancelled) setVideoReady(true); },
+          onStateChange: (event: { data: number }) => {
+            // YT.PlayerState: PLAYING = 1
+            if (cancelled) return;
+            setIsPlaying(event?.data === 1);
+          },
           // Bound directly to the native YT IFrame API onError event.
           // Codes: 2 = invalid videoId, 5 = HTML5 player error,
           // 100 = removed/private, 101/150 = embed/region blocked.
@@ -277,6 +285,7 @@ export const SectionedSongPlayer = ({
               healVideo(currentId, code);
             }
           },
+
         },
       });
     });
