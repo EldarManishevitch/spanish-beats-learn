@@ -266,12 +266,18 @@ export const SectionedSongPlayer = ({
         videoId: currentId,
         playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
         events: {
-          onReady: () => { if (!cancelled) setVideoReady(true); },
-          onStateChange: (event: { data: number }) => {
-            // YT.PlayerState: PLAYING = 1
+          onReady: (event: { target: unknown }) => {
             if (cancelled) return;
-            setIsPlaying(event?.data === 1);
+            setVideoReady(true);
+            registerPlayer(event?.target as { getCurrentTime?: () => number });
+            syncNow();
           },
+          onStateChange: (event: { data: number }) => {
+            // YT.PlayerState: PLAYING = 1 → start rAF, anything else → stop.
+            if (cancelled) return;
+            handlePlayerStateChange(event);
+          },
+
           // Bound directly to the native YT IFrame API onError event.
           // Codes: 2 = invalid videoId, 5 = HTML5 player error,
           // 100 = removed/private, 101/150 = embed/region blocked.
