@@ -449,9 +449,13 @@ export const SectionedSongPlayer = ({
 
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
+              // Prefer real DB timestamps; fall back to the duration-spread
+              // map when the song's lines are all 0/0 (legacy / no LRC).
+              const fb = fallbackTimings.get(line.id);
+              const startT = fb ? fb.start : line.start_seconds;
+              const endT = fb ? fb.end : line.end_seconds;
               const isActive =
-                currentPlaybackTime >= line.start_seconds &&
-                currentPlaybackTime <= line.end_seconds;
+                endT > 0 && currentPlaybackTime >= startT && currentPlaybackTime <= endT;
               return (
                 <div
                   key={line.id}
@@ -463,18 +467,17 @@ export const SectionedSongPlayer = ({
                   }}
                   className={`rounded-lg px-3 py-2 transition-all duration-300 ${
                     isActive
-                      ? "opacity-100 scale-[1.01] bg-neutral-900 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
-                      : "opacity-30"
+                      ? "scale-[1.02] bg-orange-50 border-l-4 border-orange-500 pl-3 shadow-sm"
+                      : "border-l-4 border-transparent pl-3"
                   }`}
                 >
                   <p
                     className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
                       isActive
-                        ? "text-white font-bold opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-                        : "font-medium text-gray-400"
+                        ? "text-black font-extrabold text-xl"
+                        : "font-medium text-slate-600 opacity-80"
                     }`}
                   >
-
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
@@ -487,7 +490,9 @@ export const SectionedSongPlayer = ({
                     ))}
                   </p>
                   {showEnglish && line.english_translation && (
-                    <p className="text-sm text-muted-foreground italic">{line.english_translation}</p>
+                    <p className={`text-sm italic ${isActive ? "text-slate-700" : "text-slate-500"}`}>
+                      {line.english_translation}
+                    </p>
                   )}
                 </div>
               );
