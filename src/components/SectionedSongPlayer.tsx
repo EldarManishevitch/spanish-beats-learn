@@ -115,25 +115,70 @@ export const SectionedSongPlayer = ({
   const [syncStatus, setSyncStatus] = useState<"checking" | "synced" | "static">(
     hasTimestamps ? "synced" : "checking",
   );
+  const autoResyncAttempted = useRef<string | null>(null);
+
+  // Shared re-sync handler used by both the auto-attempt and the manual
+  // button. `silent=true` suppresses toasts (auto-attempt on mount).
+  const runResync = async (opts: { silent: boolean }): Promise<boolean> => {
+    setResyncing(true);
+    setSyncStatus("checking");
+    try {
+      const { data, error } = await supabase.functions.invoke("resync-lyrics", {
+        body: { song_id: songId },
+      });
+      if (error) throw error;
+      if (!data?.success) {
+        if (!opts.silent) {
+          toast.info(data?.message ?? "Still no synced lyrics found. Try again later.");
+        }
+        return false;
+      }
+      const { data: fresh } = await supabase
+        .from("lyric_lines")
+        .select("id, line_index, spanish_text, pronunciation, english_translation, start_seconds, end_seconds, is_chorus")
+        .eq("song_id", songId)
+        .order("line_index");
+      if (fresh) setLiveLines(fresh as Line[]);
+      if (!opts.silent) {
+        toast.success(`Synced via ${data.source} (${data.updated_lines} lines)`);
+      }
+      return true;
+    } catch (e) {
+      console.error("resync error:", e);
+      if (!opts.silent) toast.error("Re-sync failed. Please try again.");
+      return false;
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   useEffect(() => {
     // Reset when the song changes
+    autoResyncAttempted.current = null;
     setSyncStatus(hasTimestamps ? "synced" : "checking");
   }, [songId]);
+
   useEffect(() => {
-    // Promote to synced as soon as real timestamps appear (initial load or
-    // after a successful re-sync).
     if (hasTimestamps) {
       setSyncStatus("synced");
       return;
     }
-    // No timestamps yet — give the background fetch a short grace window
-    // before falling back to static mode.
-    if (syncStatus === "checking") {
-      const t = window.setTimeout(() => {
-        setSyncStatus((prev) => (prev === "checking" ? "static" : prev));
-      }, 1200);
-      return () => window.clearTimeout(t);
-    }
+    // No timestamps yet — try one silent auto re-sync, then fall back to static.
+    if (syncStatus !== "checking") return;
+    if (autoResyncAttempted.current === songId) return;
+    autoResyncAttempted.current = songId;
+
+    let cancelled = false;
+    (async () => {
+      const ok = await runResync({ silent: true });
+      if (cancelled) return;
+      if (!ok) setSyncStatus("static");
+      // If ok, the fresh liveLines will flip hasTimestamps and the effect
+      // above sets 'synced' automatically.
+    })();
+    return () => { cancelled = true; };
+    // runResync is stable enough — depends only on songId via closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTimestamps, syncStatus, songId]);
 
   const isSynced = syncStatus === "synced";
