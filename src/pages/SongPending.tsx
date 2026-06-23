@@ -23,6 +23,7 @@ const SongPending = () => {
   const meta = entry?.optimistic;
   const [progress, setProgress] = useState(4);
   const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!youtubeId) {
@@ -30,8 +31,10 @@ const SongPending = () => {
       return;
     }
     const e = getCachedByYoutubeId(youtubeId);
+    // No active generation in this tab (e.g. direct link / refresh): stay on
+    // the pending screen with whatever optimistic metadata we have rather
+    // than bouncing the user back to the dashboard.
     if (!e?.generation) {
-      navigate("/", { replace: true });
       return;
     }
     let cancelled = false;
@@ -59,18 +62,18 @@ const SongPending = () => {
           setTimeout(() => !cancelled && setProgress(100), 250);
           setTimeout(() => !cancelled && navigate(`/song/${res.song_id}`, { replace: true }), 600);
         } else {
-          toast({ title: "Generation failed", description: res?.error ?? "Unknown error", variant: "destructive" });
-          navigate("/", { replace: true });
+          const msg = res?.error ?? "Unknown error";
+          toast({ title: "Generation failed", description: msg, variant: "destructive" });
+          // Do NOT redirect home — keep the user here so backend hiccups
+          // (e.g. YOUTUBE_QUOTA_EXCEEDED) don't kick them out of the flow.
+          setFailed(msg);
         }
       })
       .catch((err) => {
         if (cancelled) return;
-        toast({
-          title: "Generation failed",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
-        navigate("/", { replace: true });
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        toast({ title: "Generation failed", description: msg, variant: "destructive" });
+        setFailed(msg);
       });
     return () => {
       cancelled = true;
