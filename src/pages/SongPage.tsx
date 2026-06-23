@@ -176,25 +176,6 @@ const SongPage = () => {
         )}
       </Helmet>
 
-      {/* Top progress bar — purely visual, never blocks interaction (pointer-events-none). */}
-      <div
-        aria-hidden={!isGenerating}
-        className={`fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent animate-[slide-in-right_1.4s_ease-in-out_infinite]" />
-      </div>
-
-      {/* Floating status pill — sits above content but doesn't intercept clicks. */}
-      <div
-        role="status"
-        aria-live="polite"
-        className={`fixed bottom-6 right-6 z-50 pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="glass flex items-center gap-2 rounded-full px-4 py-2 shadow-neon-pink text-sm text-foreground">
-          <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
-          <span>🪄 AI is crafting your song…</span>
-        </div>
-      </div>
 
       <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back
