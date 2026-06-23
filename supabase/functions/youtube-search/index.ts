@@ -195,7 +195,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const raw = scraped.map((r) => ({
+    // Exclude "Official Video" titles (consecutive, case-insensitive) to prefer
+    // audio/lyric uploads that sync better. Keeps "Official Music Video",
+    // "Official Audio", etc. Falls back to first original if filter empties.
+    const filteredScraped = scraped.filter(
+      (r) => !r.title.toLowerCase().includes("official video"),
+    );
+    const safeScraped = filteredScraped.length > 0
+      ? filteredScraped
+      : (scraped.length > 0 ? [scraped[0]] : []);
+
+    const raw = safeScraped.map((r) => ({
       youtube_id: r.youtube_id,
       title: cleanYoutubeText(r.title) || r.title,
       channel: cleanYoutubeText(r.channel) || r.channel,
