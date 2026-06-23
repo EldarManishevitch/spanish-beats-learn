@@ -449,15 +449,52 @@ export const SectionedSongPlayer = ({
               <p className="text-sm text-muted-foreground">Lyrics are still loading…</p>
             )}
 
+            {active && !isSynced && (
+              <div className="flex justify-center mb-1">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/60"
+                  role="status"
+                >
+                  Static lyrics — sync unavailable for this track
+                </span>
+              </div>
+            )}
+
+            {active && isSynced && (() => {
+              const firstStart = active.lines.reduce((min, l) => {
+                const t = effectiveTimings.get(l.id)?.start ?? l.start_seconds ?? 0;
+                return t > 0 && (min === null || t < min) ? t : min;
+              }, null as number | null);
+              const isIntro =
+                videoReady &&
+                firstStart !== null &&
+                currentPlaybackTime < firstStart - 0.2;
+              if (!isIntro) return null;
+              return (
+                <div className="flex justify-center mb-1 animate-fade-in">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/70 transition-opacity duration-300"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    🎵 Instrumental…
+                  </span>
+                </div>
+              );
+            })()}
+
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
-              // Prefer real DB timestamps; fall back to the duration-spread
-              // map when the song's lines are all 0/0 (legacy / no LRC).
-              const fb = fallbackTimings.get(line.id);
-              const startT = fb ? fb.start : line.start_seconds;
-              const endT = fb ? fb.end : line.end_seconds;
+              // For synced songs, use the capped active window so highlight
+              // drops during instrumental gaps. For unsynced songs, render
+              // every line in static (non-active) style.
+              const t = effectiveTimings.get(line.id);
               const isActive =
-                endT > 0 && currentPlaybackTime >= startT && currentPlaybackTime <= endT;
+                isSynced &&
+                !!t &&
+                t.end > t.start &&
+                currentPlaybackTime >= t.start &&
+                currentPlaybackTime <= t.end;
               return (
                 <div
                   key={line.id}
@@ -500,6 +537,7 @@ export const SectionedSongPlayer = ({
               );
             })}
           </div>
+
 
         </div>
       </div>
