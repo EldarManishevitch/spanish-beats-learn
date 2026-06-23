@@ -246,6 +246,26 @@ const SongPage = () => {
         </div>
       </header>
 
+      {showProgress && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`w-full flex flex-col gap-1.5 mb-6 mt-2 transition-opacity duration-500 ${progress === 100 ? "opacity-0 animate-fade-out" : "opacity-100"}`}
+        >
+          <div className="flex justify-between text-sm font-medium text-[#D96B43] mb-1">
+            <span>{statusMessage}</span>
+            <span className="font-mono tabular-nums">{progress}%</span>
+          </div>
+          <div className="w-full h-2.5 bg-[#2C2A29]/10 rounded-full overflow-hidden border border-[#2C2A29]/20 shadow-inner">
+            <div
+              className="bg-gradient-to-r from-[#D96B43] to-[#2C2A29] h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+
       <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === "vocab") loadVocab(); }} className="space-y-6">
         <TabsList className="glass">
           <TabsTrigger value="lyrics" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
