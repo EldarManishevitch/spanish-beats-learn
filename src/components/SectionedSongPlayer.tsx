@@ -105,12 +105,38 @@ export const SectionedSongPlayer = ({
   }, [liveLines]);
 
   // A song is "synced" when at least one line carries a real LRC timestamp.
-  // Synced songs get highlighting + intro indicator; unsynced songs render as
-  // static lyrics (Apple Music's "Lyrics" mode), with no fake auto-highlight.
-  const isSynced = useMemo(
+  const hasTimestamps = useMemo(
     () => liveLines.some((l) => (l.start_seconds ?? 0) > 0),
     [liveLines],
   );
+
+  // Three-state UI flow: lyrics render instantly; sync resolution is decided
+  // in the background so the user never waits on a blank screen.
+  const [syncStatus, setSyncStatus] = useState<"checking" | "synced" | "static">(
+    hasTimestamps ? "synced" : "checking",
+  );
+  useEffect(() => {
+    // Reset when the song changes
+    setSyncStatus(hasTimestamps ? "synced" : "checking");
+  }, [songId]);
+  useEffect(() => {
+    // Promote to synced as soon as real timestamps appear (initial load or
+    // after a successful re-sync).
+    if (hasTimestamps) {
+      setSyncStatus("synced");
+      return;
+    }
+    // No timestamps yet — give the background fetch a short grace window
+    // before falling back to static mode.
+    if (syncStatus === "checking") {
+      const t = window.setTimeout(() => {
+        setSyncStatus((prev) => (prev === "checking" ? "static" : prev));
+      }, 1200);
+      return () => window.clearTimeout(t);
+    }
+  }, [hasTimestamps, syncStatus, songId]);
+
+  const isSynced = syncStatus === "synced";
 
   // Cap each line's active window to its realistic sung duration so the
   // highlight drops during instrumental gaps (mid-song breaks, bridges,
@@ -451,12 +477,20 @@ export const SectionedSongPlayer = ({
               <p className="text-sm text-muted-foreground">Lyrics are still loading…</p>
             )}
 
-            {active && !isSynced && (
-              <div className="flex flex-col items-center gap-2 mb-1">
+            {active && syncStatus === "checking" && (
+              <div className="flex justify-center mb-2 animate-pulse transition-all duration-300">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/60"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/10 bg-white px-3 py-1 text-xs text-[#2C2A29]/80"
                   role="status"
                 >
+                  🔄 Checking for time-sync database markers…
+                </span>
+              </div>
+            )}
+
+            {active && syncStatus === "static" && (
+              <div className="flex flex-col items-center gap-2 mb-1 transition-all duration-300">
+                <span className="text-xs text-[#2C2A29]/50" role="status">
                   Static lyrics — sync unavailable for this track
                 </span>
                 <Button
@@ -465,6 +499,7 @@ export const SectionedSongPlayer = ({
                   disabled={resyncing}
                   onClick={async () => {
                     setResyncing(true);
+                    setSyncStatus("checking");
                     try {
                       const { data, error } = await supabase.functions.invoke("resync-lyrics", {
                         body: { song_id: songId },
@@ -472,10 +507,10 @@ export const SectionedSongPlayer = ({
                       if (error) throw error;
                       if (!data?.success) {
                         toast.info(data?.message ?? "Still no synced lyrics found. Try again later.");
+                        setSyncStatus("static");
                         return;
                       }
                       toast.success(`Synced via ${data.source} (${data.updated_lines} lines)`);
-                      // Refresh lyric_lines so highlighting kicks in
                       const { data: fresh } = await supabase
                         .from("lyric_lines")
                         .select("id, line_index, spanish_text, pronunciation, english_translation, start_seconds, end_seconds, is_chorus")
@@ -485,6 +520,7 @@ export const SectionedSongPlayer = ({
                     } catch (e) {
                       console.error(e);
                       toast.error("Re-sync failed. Please try again.");
+                      setSyncStatus("static");
                     } finally {
                       setResyncing(false);
                     }
