@@ -120,8 +120,8 @@ const SongPending = () => {
             <p className="opacity-70 mt-2 text-xs">You're still on the song page — head back to search to try again when you're ready.</p>
           </div>
         )}
-        </div>
         <div className="relative h-3 w-full rounded-full bg-primary/10 overflow-hidden ritmo-border">
+
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-accent shadow-[0_0_18px_hsl(var(--primary)),0_0_36px_hsl(var(--primary)/0.6)] transition-[width] duration-300 ease-out"
             style={{ width: `${pct}%` }}
