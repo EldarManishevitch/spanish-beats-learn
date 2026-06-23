@@ -52,23 +52,42 @@ const SongPending = () => {
       });
     }, 350);
 
-    // Safety net: if the edge function silently hangs (no response, no error),
-    // abort the UI after 60s so the user isn't stuck at 4% indefinitely.
+    // Safety net: a 60s inactivity watchdog. The deadline RESETS every time
+    // we advance to a new stage (Searching → Translating → Saving), so a
+    // healthy long-running generation that keeps making progress never trips
+    // it — only true silence (no stage change for 60s) does.
     const TIMEOUT_MS = 60_000;
     let timeoutHit = false;
+    let deadline = Date.now() + TIMEOUT_MS;
+    let lastStage = stageLabel(4);
+    let resolveTimeout: (v: { error: string }) => void;
     const timeoutPromise = new Promise<{ error: string }>((resolve) => {
-      setTimeout(() => {
+      resolveTimeout = resolve;
+    });
+    const watchdog = setInterval(() => {
+      // Reset deadline on any stage transition (= "feature completion").
+      setProgress((p) => {
+        const currentStage = stageLabel(Math.round(p));
+        if (currentStage !== lastStage) {
+          lastStage = currentStage;
+          deadline = Date.now() + TIMEOUT_MS;
+        }
+        return p;
+      });
+      if (Date.now() > deadline) {
         timeoutHit = true;
-        resolve({
+        clearInterval(watchdog);
+        resolveTimeout({
           error:
             "This is taking longer than expected. The lyrics service may be unavailable — please try another song or try again in a moment.",
         });
-      }, TIMEOUT_MS);
-    });
+      }
+    }, 500);
 
     Promise.race([e.generation, timeoutPromise])
       .then((res) => {
         if (cancelled) return;
+        clearInterval(watchdog);
         if (!timeoutHit && res && "song_id" in res && res.song_id) {
           setDone(true);
           setProgress(85);
@@ -89,6 +108,7 @@ const SongPending = () => {
       })
       .catch((err) => {
         if (cancelled) return;
+        clearInterval(watchdog);
         const msg = err instanceof Error ? err.message : "Unknown error";
         toast({ title: "Generation failed", description: msg, variant: "destructive" });
         setFailed(msg);
@@ -96,6 +116,7 @@ const SongPending = () => {
     return () => {
       cancelled = true;
       clearInterval(tick);
+      clearInterval(watchdog);
     };
   }, [youtubeId, navigate, done]);
 
