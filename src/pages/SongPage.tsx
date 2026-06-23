@@ -151,6 +151,46 @@ const SongPage = () => {
   const headerReady = Boolean(song);
   const flaggedSet = new Set(flags.map((f) => f.word));
 
+  // Premium progress: derived from realtime signals so the bar reflects the
+  // background pipeline without blocking the UI.
+  //  • 10%  — initial (page mounted, awaiting metadata)
+  //  • 30%  — song row landed (YouTube + Genius search done)
+  //  • 30→75% — lines streaming in & being translated
+  //  • 90%  — every line has an English translation
+  //  • 100% — generation considered idle (fades out)
+  const { progress, statusMessage } = useMemo(() => {
+    if (!isGenerating) {
+      return { progress: 100, statusMessage: "Ready" };
+    }
+    if (!song?.title) {
+      return { progress: 10, statusMessage: "Searching YouTube & Genius..." };
+    }
+    const total = lines.length;
+    const translated = lines.filter((l) => l.english_translation).length;
+    if (total === 0) {
+      return { progress: 30, statusMessage: "Fetching lyrics..." };
+    }
+    const ratio = translated / total;
+    if (ratio < 1) {
+      return {
+        progress: Math.round(30 + ratio * 45),
+        statusMessage: "AI Generating English Translation & Phonetics...",
+      };
+    }
+    return { progress: 90, statusMessage: "Saving to Database & Rendering..." };
+  }, [isGenerating, song?.title, lines]);
+
+  // Keep the bar mounted briefly after completion so the fade-out animation
+  // can finish before we unmount.
+  const [showProgress, setShowProgress] = useState(true);
+  useEffect(() => {
+    if (progress === 100) {
+      const t = window.setTimeout(() => setShowProgress(false), 600);
+      return () => window.clearTimeout(t);
+    }
+    setShowProgress(true);
+  }, [progress]);
+
   return (
     <AppLayout>
       <Helmet>
