@@ -625,10 +625,22 @@ export const SectionedSongPlayer = ({
                       </span>
                     ))}
                   </p>
-                  {showEnglish && line.english_translation && (
-                    <p className={`text-sm italic transition-all duration-300 mt-1 text-[#2C2A29] ${isActive ? "opacity-90 font-medium" : "opacity-50"}`}>
-                      {line.english_translation}
-                    </p>
+                  {showEnglish && (
+                    line.english_translation ? (
+                      <p
+                        className={`text-sm italic transition-opacity duration-300 mt-1 text-[#2C2A29] opacity-100 ${
+                          isActive ? "opacity-90 font-medium" : "opacity-50"
+                        }`}
+                      >
+                        {line.english_translation}
+                      </p>
+                    ) : (
+                      <div
+                        className="h-4 w-2/3 bg-[#2C2A29]/10 animate-pulse rounded mt-1 transition-opacity duration-300"
+                        role="status"
+                        aria-label="Translation loading"
+                      />
+                    )
                   )}
                 </div>
               );
