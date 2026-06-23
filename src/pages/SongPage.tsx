@@ -31,6 +31,10 @@ const SongPage = () => {
   const [flags, setFlags] = useState<Flag[]>([]);
   const [tab, setTab] = useState<string>("lyrics");
   const [quizSection, setQuizSection] = useState<QuizSection>("full");
+  // Non-blocking generation indicator: stays visible while realtime events keep
+  // arriving from the background pipeline. Fades out after a quiet period.
+  const [lastEventAt, setLastEventAt] = useState<number>(() => Date.now());
+  const [isGenerating, setIsGenerating] = useState<boolean>(true);
 
   const loadVocab = async () => {
     if (!user || !id) return;
@@ -83,6 +87,7 @@ const SongPage = () => {
         (payload) => {
           const next = payload.new as Song | null;
           if (next?.id) setSong((prev) => ({ ...(prev ?? next), ...next }));
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -94,6 +99,7 @@ const SongPage = () => {
             if (prev.some((l) => l.id === row.id)) return prev;
             return [...prev, row].sort((a, b) => a.line_index - b.line_index);
           });
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -102,6 +108,7 @@ const SongPage = () => {
         (payload) => {
           const row = payload.new as Line;
           setLines((prev) => prev.map((l) => (l.id === row.id ? { ...l, ...row } : l)));
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -115,6 +122,20 @@ const SongPage = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
+
+  // Generation considered complete once song metadata + lyrics exist AND no
+  // realtime events have arrived for a few seconds. Fully non-blocking.
+  useEffect(() => {
+    const QUIET_MS = 4000;
+    const hasContent = Boolean(song?.title) && lines.length > 0 && lines.every((l) => l.english_translation);
+    const tick = () => {
+      const idleFor = Date.now() - lastEventAt;
+      setIsGenerating(!(hasContent && idleFor > QUIET_MS));
+    };
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+  }, [song?.title, lines, lastEventAt]);
 
   // Progressive render: as soon as we have an :id, show the page shell. Header
   // fills in when song data lands; player mounts when youtube_id is known;
@@ -154,6 +175,27 @@ const SongPage = () => {
           </>
         )}
       </Helmet>
+
+      {/* Top progress bar — purely visual, never blocks interaction (pointer-events-none). */}
+      <div
+        aria-hidden={!isGenerating}
+        className={`fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent animate-[slide-in-right_1.4s_ease-in-out_infinite]" />
+      </div>
+
+      {/* Floating status pill — sits above content but doesn't intercept clicks. */}
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed bottom-6 right-6 z-50 pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="glass flex items-center gap-2 rounded-full px-4 py-2 shadow-neon-pink text-sm text-foreground">
+          <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <span>🪄 AI is crafting your song…</span>
+        </div>
+      </div>
+
       <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back
       </Link>
