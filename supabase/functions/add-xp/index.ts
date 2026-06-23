@@ -29,6 +29,56 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+type ValidationResult = { ok: true } | { ok: false; error: string };
+
+// deno-lint-ignore no-explicit-any
+async function validateRef(admin: any, userId: string, event_type: string, ref_id: string): Promise<ValidationResult> {
+  switch (event_type) {
+    case "roleplay_completed": {
+      // ref_id is expected to be today's UTC date. Reject anything that is
+      // not today — otherwise a client could mint 50 XP per fake date string.
+      if (!DATE_RE.test(ref_id)) return { ok: false, error: "ref_id must be a YYYY-MM-DD date" };
+      const today = new Date().toISOString().slice(0, 10);
+      if (ref_id !== today) return { ok: false, error: "ref_id must match today's UTC date" };
+      return { ok: true };
+    }
+    case "quiz_correct":
+    case "section_completed": {
+      // ref_id format `${song_id}:${something}` — song_id must be a real row.
+      const [songId] = ref_id.split(":");
+      if (!songId || !UUID_RE.test(songId)) return { ok: false, error: "ref_id must start with a valid song id" };
+      const { data, error } = await admin.from("songs").select("id").eq("id", songId).maybeSingle();
+      if (error) return { ok: false, error: "could not verify song" };
+      if (!data) return { ok: false, error: "song not found" };
+      return { ok: true };
+    }
+    case "word_mastered": {
+      // The word must already be marked mastered for THIS user. Mastery is
+      // computed server-side by a trigger on user_vocab_stats, so this check
+      // can no longer be forged from the client.
+      const word = ref_id.trim().toLowerCase();
+      if (!word) return { ok: false, error: "ref_id required" };
+      const { data, error } = await admin
+        .from("user_vocab_stats")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("word", word)
+        .eq("is_mastered", true)
+        .maybeSingle();
+      if (error) return { ok: false, error: "could not verify word mastery" };
+      if (!data) return { ok: false, error: "word is not mastered yet" };
+      return { ok: true };
+    }
+    default:
+      return { ok: false, error: "unsupported event_type" };
+  }
+}
+
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
