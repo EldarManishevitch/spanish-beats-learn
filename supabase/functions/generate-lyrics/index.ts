@@ -601,11 +601,15 @@ ${rawLyrics}`;
       if (!aiResponse.ok) {
         const text = await aiResponse.text();
         console.error("AI translation error:", aiResponse.status, text);
-        if (aiResponse.status === 429) return jsonResponse({ error: "Rate limit exceeded, try again soon." }, 429);
-        if (aiResponse.status === 402) {
-          return jsonResponse({ error: "Lovable AI credits exhausted. Add credits in Settings → Workspace → Usage." }, 402);
+        // Return 200 with a structured error so `supabase.functions.invoke`
+        // doesn't throw on the client. The client surfaces `data.error`.
+        if (aiResponse.status === 429) {
+          return jsonResponse({ error: "Rate limit exceeded, try again soon.", code: "RATE_LIMITED", fallback: false }, 200);
         }
-        return jsonResponse({ error: "AI translation failed" }, 502);
+        if (aiResponse.status === 402) {
+          return jsonResponse({ error: "Lovable AI credits exhausted. Add credits in Settings → Plans & credits.", code: "CREDITS_EXHAUSTED", fallback: false }, 200);
+        }
+        return jsonResponse({ error: "AI translation failed", code: "AI_FAILED", fallback: true }, 200);
       }
 
       let aiData = await aiResponse.json();
