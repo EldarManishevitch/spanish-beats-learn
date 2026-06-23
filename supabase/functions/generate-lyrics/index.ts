@@ -554,6 +554,9 @@ Deno.serve(async (req) => {
 
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
+    // Synced LRC timestamps (seconds) aligned 1:1 with rawLyrics lines when
+    // present. lrclib is the only source that ships these reliably.
+    let syncedTimestamps: number[] = [];
 
     const ytSplit = splitTitleArtist(cleanedTitle);
     const cleanArtist = geniusHit ? sanitizeArtist(geniusHit.artist) : (ytSplit?.artist ?? channel ?? "");
@@ -572,30 +575,39 @@ Deno.serve(async (req) => {
 
     try {
       // Fire lrclib attempts AND Genius scrape in parallel — first valid wins.
+      // lrclib hits also carry `synced` timestamps when available.
       const lrclibPromises = lrclibAttempts
         .filter((a) => a.title && a.artist)
         .map((attempt) =>
-          fetchLrclibLyrics(attempt.title, attempt.artist).then((t) =>
-            t && t.length >= 50 ? { src: "lrclib", text: t } : null,
+          fetchLrclibLyrics(attempt.title, attempt.artist).then((r) =>
+            r && r.plain.length >= 50
+              ? { src: "lrclib", text: r.plain, synced: r.synced }
+              : null,
           ),
         );
       const geniusPromise = geniusHit
         ? fetchGeniusLyrics(geniusHit.url).then((t) =>
-            t && t.length >= 50 ? { src: "genius", text: t } : null,
+            t && t.length >= 50 ? { src: "genius", text: t, synced: [] as SyncedLine[] } : null,
           )
         : Promise.resolve(null);
 
       const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
-      const firstHit = parallelResults.find((r) => !!r) ?? null;
+      // Prefer the first lrclib hit that actually shipped synced timestamps,
+      // otherwise fall back to any first valid result.
+      const syncedHit = parallelResults.find((r) => r && r.src === "lrclib" && r.synced.length > 0);
+      const firstHit = syncedHit ?? parallelResults.find((r) => !!r) ?? null;
       if (firstHit) {
         rawLyrics = firstHit.text;
-        lyricsSource = firstHit.src;
+        lyricsSource = firstHit.synced.length > 0 ? "lrclib_synced" : firstHit.src;
+        // Build a per-line start_seconds aligned with the stripped plain text
+        // we hand to the AI. lrclib's plainLyrics line order matches synced.
+        if (firstHit.synced.length > 0) {
+          syncedTimestamps = firstHit.synced.map((s) => s.time);
+        }
       }
 
       if (!rawLyrics || rawLyrics.length < 50) {
         console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
-        // Prefer YouTube-derived artist/title — Genius hits are often compilation pages
-        // ("Genius en Español — Sencillos del Mes…") that poison the web search.
         const fbTitle = ytSplit?.title || cleanTitle;
         const fbArtist = ytSplit?.artist || cleanArtist;
         rawLyrics = await fetchWebFallbackLyrics(fbTitle, fbArtist, LOVABLE_API_KEY);
