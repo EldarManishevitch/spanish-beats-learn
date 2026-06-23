@@ -87,6 +87,7 @@ const SongPage = () => {
         (payload) => {
           const next = payload.new as Song | null;
           if (next?.id) setSong((prev) => ({ ...(prev ?? next), ...next }));
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -98,6 +99,7 @@ const SongPage = () => {
             if (prev.some((l) => l.id === row.id)) return prev;
             return [...prev, row].sort((a, b) => a.line_index - b.line_index);
           });
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -106,6 +108,7 @@ const SongPage = () => {
         (payload) => {
           const row = payload.new as Line;
           setLines((prev) => prev.map((l) => (l.id === row.id ? { ...l, ...row } : l)));
+          setLastEventAt(Date.now());
         },
       )
       .on(
@@ -119,6 +122,20 @@ const SongPage = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
+
+  // Generation considered complete once song metadata + lyrics exist AND no
+  // realtime events have arrived for a few seconds. Fully non-blocking.
+  useEffect(() => {
+    const QUIET_MS = 4000;
+    const hasContent = Boolean(song?.title) && lines.length > 0 && lines.every((l) => l.english_translation);
+    const tick = () => {
+      const idleFor = Date.now() - lastEventAt;
+      setIsGenerating(!(hasContent && idleFor > QUIET_MS));
+    };
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+  }, [song?.title, lines, lastEventAt]);
 
   // Progressive render: as soon as we have an :id, show the page shell. Header
   // fills in when song data lands; player mounts when youtube_id is known;
