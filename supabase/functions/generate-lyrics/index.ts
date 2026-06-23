@@ -731,6 +731,24 @@ Deno.serve(async (req) => {
           console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
         }
       }
+
+      // Best-effort 4th provider: Whisper forced alignment on YouTube audio.
+      // Only fires when we have plain lyrics but no synced timestamps yet.
+      if (rawLyrics && rawLyrics.length >= 50 && syncedTimestamps.length === 0) {
+        try {
+          const { alignWithWhisper } = await import("../_shared/lyrics-sync.ts");
+          const aligned = await alignWithWhisper(youtube_id, rawLyrics, LOVABLE_API_KEY);
+          if (aligned && aligned.synced.length > 0) {
+            syncedTimestamps = aligned.synced.map((s) => s.time);
+            lyricsSource = `${lyricsSource}+whisper_aligned`;
+            console.log("whisper alignment hit:", aligned.synced.length, "lines");
+          } else {
+            console.log("whisper alignment skipped/miss");
+          }
+        } catch (e) {
+          console.warn("whisper alignment errored:", e instanceof Error ? e.message : e);
+        }
+      }
     } catch (error) {
       console.error("Lyrics retrieval failed:", error instanceof Error ? error.message : error);
       return jsonResponse({ error: "Lyrics retrieval failed. Please try another track." }, 502);
