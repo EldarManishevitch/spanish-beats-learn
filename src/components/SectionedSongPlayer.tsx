@@ -84,6 +84,9 @@ export const SectionedSongPlayer = ({
   const [activeYoutubeId, setActiveYoutubeId] = useState<string | null>(youtubeId ?? null);
   const [healing, setHealing] = useState(false);
   const [checkingVideo, setCheckingVideo] = useState(false);
+  // Video duration in seconds — captured on player ready. Used to build a
+  // fallback timing map for songs whose lyric_lines were saved with 0/0.
+  const [videoDuration, setVideoDuration] = useState<number>(0);
   const healedIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => { setActiveYoutubeId(youtubeId ?? null); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
 
