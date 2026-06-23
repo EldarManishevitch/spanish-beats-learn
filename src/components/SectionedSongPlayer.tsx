@@ -131,6 +131,11 @@ export const SectionedSongPlayer = ({
     syncNow,
   } = useLyricsSync();
   const lastScrolledLineId = useRef<string | null>(null);
+  // Video duration in seconds — captured on player ready. Used to build a
+  // fallback timing map for songs whose lyric_lines were saved with
+  // start_seconds=end_seconds=0 (no LRC source was available at gen time).
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+
 
 
 
