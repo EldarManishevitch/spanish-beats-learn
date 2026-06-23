@@ -75,6 +75,14 @@ Deno.serve(async (req) => {
     const songId = String(body?.song_id ?? "").trim();
     if (!songId) return jsonResponse({ error: "song_id required" }, 400);
 
+    const userId = userData.user.id;
+    if (rateLimitHit(userId, songId)) {
+      return jsonResponse({
+        success: false,
+        message: "You've already requested a resync for this song recently. Try again later.",
+      }, 429);
+    }
+
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     const { data: song, error: songErr } = await supabase
