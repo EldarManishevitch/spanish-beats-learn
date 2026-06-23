@@ -427,8 +427,8 @@ export const SectionedSongPlayer = ({
           )}
         </div>
 
-        <div className="lg:col-span-2 relative bg-white ritmo-border shadow-soft rounded-2xl max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border sticky top-0 bg-white z-[1]">
+        <div className="lg:col-span-2 relative bg-[#FBF9F6] ritmo-border shadow-soft rounded-2xl max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border sticky top-0 bg-[#FBF9F6] z-[1]">
             <span className="text-sm font-semibold">{active?.label}</span>
             <label className="flex items-center gap-2 cursor-pointer">
               <span className={`text-xs font-medium ${showEnglish ? "text-primary" : "text-muted-foreground"}`}>
@@ -467,30 +467,30 @@ export const SectionedSongPlayer = ({
                   }}
                   className={`rounded-lg px-3 py-2 transition-all duration-300 ${
                     isActive
-                      ? "scale-[1.02] bg-orange-50 border-l-4 border-orange-500 pl-3 shadow-sm"
+                      ? "scale-[1.02] bg-[#D96B43]/5 border-l-4 border-[#D96B43] pl-3 shadow-sm"
                       : "border-l-4 border-transparent pl-3"
                   }`}
                 >
                   <p
                     className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
                       isActive
-                        ? "text-black font-extrabold text-xl"
-                        : "font-medium text-slate-600 opacity-80"
+                        ? "text-[#D96B43] font-black text-xl"
+                        : "font-medium text-[#2C2A29] opacity-75"
                     }`}
                   >
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
-                          word={w}
-                          songId={songId}
-                          showHint={hintActive && lineIdx === 0 && j === 0}
-                          onInteract={() => setHintActive(false)}
+                           word={w}
+                           songId={songId}
+                           showHint={hintActive && lineIdx === 0 && j === 0}
+                           onInteract={() => setHintActive(false)}
                         />{" "}
                       </span>
                     ))}
                   </p>
                   {showEnglish && line.english_translation && (
-                    <p className={`text-sm italic ${isActive ? "text-slate-700" : "text-slate-500"}`}>
+                    <p className={`text-sm italic transition-all duration-300 mt-1 ${isActive ? "text-[#D96B43]/80 font-medium" : "text-[#2C2A29] opacity-55"}`}>
                       {line.english_translation}
                     </p>
                   )}
