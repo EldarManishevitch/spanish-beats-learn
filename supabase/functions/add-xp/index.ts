@@ -59,6 +59,17 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    // ---------------------------------------------------------------------
+    // Server-side ref_id validation. The XP ledger's uniqueness constraint
+    // stops double-awards, but on its own it would still let an authenticated
+    // client farm XP by calling this endpoint with thousands of unique fake
+    // ref_ids. Each event type therefore has to prove the ref_id corresponds
+    // to a real, server-observable action before we credit anything.
+    // ---------------------------------------------------------------------
+    const refValidation = await validateRef(admin, userId, event_type, ref_id);
+    if (!refValidation.ok) return json({ error: refValidation.error }, 400);
+
+
     // Idempotent insert: if this event was already credited, do nothing.
     const { data: inserted, error: ledgerErr } = await admin
       .from("xp_ledger")
