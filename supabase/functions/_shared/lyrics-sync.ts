@@ -165,6 +165,54 @@ export async function fetchMegalobizLrc(
   }
 }
 
+// --- Syair (rentanadviser / syair community LRC mirror) --------------------
+// Free, no key. Adds a 4th independent LRC source to the parallel race.
+export async function fetchSyairLrc(
+  title: string,
+  artist: string,
+): Promise<{ plain: string; synced: SyncedLine[] } | null> {
+  if (!title) return null;
+  try {
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml",
+    };
+    const query = `${title} ${artist}`.trim();
+    const sRes = await fetch(
+      `https://syair.info/search?q=${encodeURIComponent(query)}`,
+      { headers, signal: AbortSignal.timeout(10000) },
+    );
+    if (!sRes.ok) return null;
+    const html = await sRes.text();
+    // Pick first result link to a lyric page.
+    const linkMatch = html.match(/<a[^>]+href="(\/lyrics\/[^"#?]+)"[^>]*>/i);
+    if (!linkMatch) return null;
+    const pageUrl = `https://syair.info${linkMatch[1]}`;
+    const pRes = await fetch(pageUrl, { headers, signal: AbortSignal.timeout(10000) });
+    if (!pRes.ok) return null;
+    const pHtml = await pRes.text();
+    // Try to locate a downloadable LRC block. Syair pages embed the LRC body
+    // inside a <textarea> or a <pre> with class "lrc".
+    let lrcText = "";
+    const taMatch = pHtml.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
+    if (taMatch) lrcText = decodeAndStrip(taMatch[1]);
+    if (!lrcText || lrcText.length < 30) {
+      const preMatch = pHtml.match(/<pre[^>]*class="[^"]*lrc[^"]*"[^>]*>([\s\S]*?)<\/pre>/i);
+      if (preMatch) lrcText = decodeAndStrip(preMatch[1]);
+    }
+    if (!lrcText || lrcText.length < 30) return null;
+    const synced = parseSyncedLrc(lrcText);
+    if (synced.length < 4) return null;
+    const plain = synced.map((s) => s.text).join("\n");
+    if (plain.trim().length < 50) return null;
+    return { plain, synced };
+  } catch (e) {
+    console.error("syair fetch failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 // --- Whisper-based forced alignment via YouTube audio (best effort) --------
 // Pulls audio through public cobalt-tools mirrors (no key required, may be
 // rate-limited or offline), sends to Lovable AI gateway whisper, then aligns
