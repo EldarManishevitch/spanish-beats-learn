@@ -465,17 +465,17 @@ export const SectionedSongPlayer = ({
                       el.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                   }}
-                  className={`rounded-lg px-3 py-2 transition-all duration-300 ${
+                  className={`rounded-xl px-4 py-3 transition-all duration-300 border-2 ${
                     isActive
-                      ? "scale-[1.02] bg-[#D96B43]/5 border-l-4 border-[#D96B43] pl-3 shadow-sm"
-                      : "border-l-4 border-transparent pl-3"
+                      ? "scale-[1.02] border-[#D96B43] bg-[#2C2A29]/5 shadow-sm"
+                      : "border-transparent bg-transparent"
                   }`}
                 >
                   <p
-                    className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
+                    className={`text-base md:text-lg leading-relaxed transition-all duration-300 text-[#2C2A29] ${
                       isActive
-                        ? "text-[#D96B43] font-black text-xl"
-                        : "font-medium text-[#2C2A29] opacity-75"
+                        ? "font-extrabold text-xl opacity-100"
+                        : "font-normal opacity-70"
                     }`}
                   >
                     {words.map((w, j) => (
@@ -490,7 +490,7 @@ export const SectionedSongPlayer = ({
                     ))}
                   </p>
                   {showEnglish && line.english_translation && (
-                    <p className={`text-sm italic transition-all duration-300 mt-1 ${isActive ? "text-[#D96B43]/80 font-medium" : "text-[#2C2A29] opacity-55"}`}>
+                    <p className={`text-sm italic transition-all duration-300 mt-1 text-[#2C2A29] ${isActive ? "opacity-90 font-medium" : "opacity-50"}`}>
                       {line.english_translation}
                     </p>
                   )}
