@@ -105,12 +105,38 @@ export const SectionedSongPlayer = ({
   }, [liveLines]);
 
   // A song is "synced" when at least one line carries a real LRC timestamp.
-  // Synced songs get highlighting + intro indicator; unsynced songs render as
-  // static lyrics (Apple Music's "Lyrics" mode), with no fake auto-highlight.
-  const isSynced = useMemo(
+  const hasTimestamps = useMemo(
     () => liveLines.some((l) => (l.start_seconds ?? 0) > 0),
     [liveLines],
   );
+
+  // Three-state UI flow: lyrics render instantly; sync resolution is decided
+  // in the background so the user never waits on a blank screen.
+  const [syncStatus, setSyncStatus] = useState<"checking" | "synced" | "static">(
+    hasTimestamps ? "synced" : "checking",
+  );
+  useEffect(() => {
+    // Reset when the song changes
+    setSyncStatus(hasTimestamps ? "synced" : "checking");
+  }, [songId]);
+  useEffect(() => {
+    // Promote to synced as soon as real timestamps appear (initial load or
+    // after a successful re-sync).
+    if (hasTimestamps) {
+      setSyncStatus("synced");
+      return;
+    }
+    // No timestamps yet — give the background fetch a short grace window
+    // before falling back to static mode.
+    if (syncStatus === "checking") {
+      const t = window.setTimeout(() => {
+        setSyncStatus((prev) => (prev === "checking" ? "static" : prev));
+      }, 1200);
+      return () => window.clearTimeout(t);
+    }
+  }, [hasTimestamps, syncStatus, songId]);
+
+  const isSynced = syncStatus === "synced";
 
   // Cap each line's active window to its realistic sung duration so the
   // highlight drops during instrumental gaps (mid-song breaks, bridges,
