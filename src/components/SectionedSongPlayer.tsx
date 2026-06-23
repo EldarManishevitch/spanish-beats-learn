@@ -535,7 +535,7 @@ export const SectionedSongPlayer = ({
 
             {active && syncStatus === "static" && (
               <div className="flex flex-col items-center gap-2 mb-1 transition-all duration-300">
-                <span className="text-xs text-[#2C2A29]/50" role="status">
+                <span className="text-xs text-[#2C2A29]/80" role="status">
                   Static lyrics — sync unavailable for this track
                 </span>
                 <Button
