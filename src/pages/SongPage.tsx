@@ -31,6 +31,10 @@ const SongPage = () => {
   const [flags, setFlags] = useState<Flag[]>([]);
   const [tab, setTab] = useState<string>("lyrics");
   const [quizSection, setQuizSection] = useState<QuizSection>("full");
+  // Non-blocking generation indicator: stays visible while realtime events keep
+  // arriving from the background pipeline. Fades out after a quiet period.
+  const [lastEventAt, setLastEventAt] = useState<number>(() => Date.now());
+  const [isGenerating, setIsGenerating] = useState<boolean>(true);
 
   const loadVocab = async () => {
     if (!user || !id) return;
