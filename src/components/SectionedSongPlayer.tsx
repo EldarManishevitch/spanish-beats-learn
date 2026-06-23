@@ -102,35 +102,37 @@ export const SectionedSongPlayer = ({
     return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
   }, [liveLines]);
 
-  // Detect songs whose lyric_lines were saved with no real timestamps (all
-  // start/end = 0). When that happens AND we know the YouTube video duration,
-  // synthesize a per-line timing map by spreading the song uniformly across
-  // the audio. It's not perfect, but it keeps the highlighter functional
-  // instead of failing silently on the entire backlog of zero-timestamp rows.
-  const needsFallbackTiming = useMemo(() => {
-    if (liveLines.length === 0) return false;
-    return liveLines.every((l) => (l.start_seconds ?? 0) === 0 && (l.end_seconds ?? 0) === 0);
-  }, [liveLines]);
+  // A song is "synced" when at least one line carries a real LRC timestamp.
+  // Synced songs get highlighting + intro indicator; unsynced songs render as
+  // static lyrics (Apple Music's "Lyrics" mode), with no fake auto-highlight.
+  const isSynced = useMemo(
+    () => liveLines.some((l) => (l.start_seconds ?? 0) > 0),
+    [liveLines],
+  );
 
-  const fallbackTimings = useMemo<Map<string, { start: number; end: number }>>(() => {
+  // Cap each line's active window to its realistic sung duration so the
+  // highlight drops during instrumental gaps (mid-song breaks, bridges,
+  // outros) instead of camping on the previous line until the next sung
+  // line. Works on legacy rows where end_seconds was saved as nextStart.
+  const effectiveTimings = useMemo<Map<string, { start: number; end: number }>>(() => {
     const map = new Map<string, { start: number; end: number }>();
-    if (!needsFallbackTiming || videoDuration <= 0 || liveLines.length === 0) return map;
-    // Reserve a tiny lead-in so the first line isn't already "active" at t=0.
-    const leadIn = Math.min(2, videoDuration * 0.02);
-    const usable = Math.max(1, videoDuration - leadIn);
-    const per = usable / liveLines.length;
-    const sorted = [...liveLines].sort((a, b) => a.line_index - b.line_index);
-    sorted.forEach((line, i) => {
-      const start = leadIn + i * per;
-      map.set(line.id, { start, end: start + per });
-    });
-    if (typeof window !== "undefined" && import.meta.env.DEV) {
-      console.warn(
-        `[lyrics-sync] No DB timestamps for song ${songId}. Using duration-based fallback (${liveLines.length} lines / ${videoDuration.toFixed(1)}s).`,
-      );
+    if (!isSynced) return map;
+    for (const line of liveLines) {
+      const start = line.start_seconds ?? 0;
+      const wordCount = (line.spanish_text || "").trim().split(/\s+/).filter(Boolean).length || 1;
+      const estimatedSung = Math.max(1.8, Math.min(7, wordCount * 0.45 + 0.8));
+      const rawEnd = line.end_seconds ?? 0;
+      const cappedByEstimate = start + estimatedSung;
+      const end = rawEnd > start ? Math.min(rawEnd, cappedByEstimate) : cappedByEstimate;
+      map.set(line.id, { start, end });
     }
     return map;
-  }, [needsFallbackTiming, videoDuration, liveLines, songId]);
+  }, [isSynced, liveLines]);
+
+  // First real sung moment in the currently active section. Used to render
+  // the intro indicator and to suppress highlighting before the singer
+  // starts. We compute it lazily off the active section below.
+  void videoDuration;
 
 
 
@@ -447,15 +449,52 @@ export const SectionedSongPlayer = ({
               <p className="text-sm text-muted-foreground">Lyrics are still loading…</p>
             )}
 
+            {active && !isSynced && (
+              <div className="flex justify-center mb-1">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/60"
+                  role="status"
+                >
+                  Static lyrics — sync unavailable for this track
+                </span>
+              </div>
+            )}
+
+            {active && isSynced && (() => {
+              const firstStart = active.lines.reduce((min, l) => {
+                const t = effectiveTimings.get(l.id)?.start ?? l.start_seconds ?? 0;
+                return t > 0 && (min === null || t < min) ? t : min;
+              }, null as number | null);
+              const isIntro =
+                videoReady &&
+                firstStart !== null &&
+                currentPlaybackTime < firstStart - 0.2;
+              if (!isIntro) return null;
+              return (
+                <div className="flex justify-center mb-1 animate-fade-in">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/70 transition-opacity duration-300"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    🎵 Instrumental…
+                  </span>
+                </div>
+              );
+            })()}
+
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
-              // Prefer real DB timestamps; fall back to the duration-spread
-              // map when the song's lines are all 0/0 (legacy / no LRC).
-              const fb = fallbackTimings.get(line.id);
-              const startT = fb ? fb.start : line.start_seconds;
-              const endT = fb ? fb.end : line.end_seconds;
+              // For synced songs, use the capped active window so highlight
+              // drops during instrumental gaps. For unsynced songs, render
+              // every line in static (non-active) style.
+              const t = effectiveTimings.get(line.id);
               const isActive =
-                endT > 0 && currentPlaybackTime >= startT && currentPlaybackTime <= endT;
+                isSynced &&
+                !!t &&
+                t.end > t.start &&
+                currentPlaybackTime >= t.start &&
+                currentPlaybackTime <= t.end;
               return (
                 <div
                   key={line.id}
@@ -498,6 +537,7 @@ export const SectionedSongPlayer = ({
               );
             })}
           </div>
+
 
         </div>
       </div>

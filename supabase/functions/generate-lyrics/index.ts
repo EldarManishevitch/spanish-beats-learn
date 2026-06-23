@@ -706,6 +706,7 @@ ${rawLyrics}`;
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
         album_art_url: safeThumb,
+        is_synced: syncedTimestamps.length > 0,
       })
       .select("id")
       .single();
@@ -715,25 +716,37 @@ ${rawLyrics}`;
       return jsonResponse({ error: "Failed to save song" }, 500);
     }
 
-    // Map synced timestamps onto the AI-translated lines. When the AI line
-    // count != source line count, interpolate proportionally so highlighting
-    // still tracks the audio. When no synced source is available, leave 0/0
-    // and let the frontend's duration-based fallback take over.
+    // Map synced timestamps onto the AI-translated lines. When line counts
+    // match, do strict 1:1 mapping (avoids interpolation drift). When they
+    // differ, fall back to proportional mapping. Critically, end_seconds is
+    // capped to a realistic SUNG duration rather than nextStart, so silence
+    // between LRC lines (intros, mid-song instrumentals, outros) leaves no
+    // line falsely highlighted.
     const aiLines = (parsed.lines ?? []) as Array<any>;
     const n = aiLines.length;
     const m = syncedTimestamps.length;
     const haveSync = m > 0 && n > 0;
     const starts: number[] = new Array(n).fill(0);
     if (haveSync) {
-      for (let i = 0; i < n; i++) {
-        const srcIdx = n === 1 ? 0 : Math.min(m - 1, Math.round((i * (m - 1)) / (n - 1)));
-        starts[i] = syncedTimestamps[srcIdx];
+      if (n === m) {
+        for (let i = 0; i < n; i++) starts[i] = syncedTimestamps[i];
+      } else {
+        for (let i = 0; i < n; i++) {
+          const srcIdx = n === 1 ? 0 : Math.min(m - 1, Math.round((i * (m - 1)) / (n - 1)));
+          starts[i] = syncedTimestamps[srcIdx];
+        }
       }
     }
     const rows = aiLines.map((line: any, index: number) => {
       const start = haveSync ? starts[index] : 0;
+      const wordCount = String(line.spanish_text ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length || 1;
+      const estimatedSung = Math.max(1.8, Math.min(7, wordCount * 0.45 + 0.8));
+      const nextStart = haveSync && index < n - 1 ? starts[index + 1] : Infinity;
       const end = haveSync
-        ? (index < n - 1 ? Math.max(starts[index + 1], start + 0.5) : start + 4)
+        ? Math.min(nextStart, start + estimatedSung)
         : 0;
       return {
         song_id: song.id,
@@ -747,6 +760,7 @@ ${rawLyrics}`;
         is_chorus: Boolean(line.is_chorus),
       };
     });
+
 
     if (rows.length === 0) {
       return jsonResponse(
