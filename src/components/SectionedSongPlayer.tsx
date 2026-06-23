@@ -163,7 +163,9 @@ export const SectionedSongPlayer = ({
       setSyncStatus("synced");
       return;
     }
-    // No timestamps yet — try one silent auto re-sync, then fall back to static.
+    // Wait until lyric lines actually exist (progressive generation may still
+    // be inserting them) — otherwise resync has nothing to align.
+    if (liveLines.length === 0) return;
     if (syncStatus !== "checking") return;
     if (autoResyncAttempted.current === songId) return;
     autoResyncAttempted.current = songId;
@@ -179,7 +181,7 @@ export const SectionedSongPlayer = ({
     return () => { cancelled = true; };
     // runResync is stable enough — depends only on songId via closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasTimestamps, syncStatus, songId]);
+  }, [hasTimestamps, syncStatus, songId, liveLines.length]);
 
   const isSynced = syncStatus === "synced";
 

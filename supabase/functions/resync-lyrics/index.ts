@@ -97,8 +97,13 @@ Deno.serve(async (req) => {
       .select("id, line_index, spanish_text, start_seconds, end_seconds")
       .eq("song_id", songId)
       .order("line_index");
-    if (linesErr || !existingLines?.length) {
-      return jsonResponse({ error: "No lyric lines to resync" }, 404);
+    if (linesErr) {
+      return jsonResponse({ error: "Failed to load lyric lines" }, 500);
+    }
+    if (!existingLines?.length) {
+      // Benign: lyrics are still being generated. Return 200 so the client
+      // doesn't surface this as an error in the progressive UI.
+      return jsonResponse({ success: false, message: "Lyrics are still being generated. Try again in a moment." }, 200);
     }
 
     const title = song.title;
