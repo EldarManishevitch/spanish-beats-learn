@@ -58,6 +58,7 @@ const Settings = () => {
       <Helmet>
         <title>Notification settings | Ritmo</title>
         <meta name="description" content="Choose when Ritmo nudges you to learn Spanish through Latin music." />
+        <link rel="canonical" href="/settings" />
         <meta name="robots" content="noindex" />
       </Helmet>
       <header className="mb-8 animate-fade-in">
