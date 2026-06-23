@@ -109,9 +109,17 @@ const SongPending = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-medium text-primary drop-shadow-[0_0_8px_hsl(var(--primary))] animate-pulse">
-            {stageLabel(pct)}
+            {failed ? "Background processing paused — you can retry from here." : stageLabel(pct)}
           </p>
-          <span className="text-sm font-mono text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{pct}%</span>
+          <span className="text-sm font-mono text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{failed ? "—" : `${pct}%`}</span>
+        </div>
+        {failed && (
+          <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="font-medium">We couldn't finish generating this song.</p>
+            <p className="opacity-80 mt-1 break-words">{failed}</p>
+            <p className="opacity-70 mt-2 text-xs">You're still on the song page — head back to search to try again when you're ready.</p>
+          </div>
+        )}
         </div>
         <div className="relative h-3 w-full rounded-full bg-primary/10 overflow-hidden ritmo-border">
           <div
