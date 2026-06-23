@@ -287,7 +287,45 @@ async function searchGenius(query: string, token: string): Promise<{ title: stri
   }
 }
 
-async function fetchLrclibLyrics(title: string, artist: string): Promise<string | null> {
+// Parsed LRC line with its absolute start time in seconds.
+type SyncedLine = { time: number; text: string };
+
+function parseSyncedLrc(text: string): SyncedLine[] {
+  const out: SyncedLine[] = [];
+  for (const raw of text.split("\n")) {
+    // LRC format: [mm:ss.xx] text  (multi-prefix lines also exist)
+    const prefixes = raw.match(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g);
+    if (!prefixes) continue;
+    const content = raw.replace(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g, "").trim();
+    // Skip metadata-only lines like [ar:Maluma] and empty markers.
+    if (!content || /^\[[^\]]+\]$/.test(content)) continue;
+    for (const p of prefixes) {
+      const m = p.match(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/);
+      if (!m) continue;
+      const min = parseInt(m[1], 10);
+      const sec = parseInt(m[2], 10);
+      const frac = m[3] ? parseInt(m[3].padEnd(3, "0"), 10) / 1000 : 0;
+      out.push({ time: min * 60 + sec + frac, text: content });
+    }
+  }
+  return out.sort((a, b) => a.time - b.time);
+}
+
+async function fetchLrclibLyrics(
+  title: string,
+  artist: string,
+): Promise<{ plain: string; synced: SyncedLine[] } | null> {
+  const pickFrom = (data: any) => {
+    const syncedRaw = (data?.syncedLyrics || "").toString();
+    const plainRaw = (data?.plainLyrics || "").toString();
+    const synced = syncedRaw ? parseSyncedLrc(syncedRaw) : [];
+    const plain = plainRaw.trim().length >= 50
+      ? stripLrcTimestamps(plainRaw)
+      : synced.length
+        ? synced.map((l) => l.text).join("\n")
+        : "";
+    return plain.trim().length > 50 ? { plain, synced } : null;
+  };
   try {
     const headers = { "User-Agent": "LovableLyrics/1.0 (https://lovable.dev)" };
     const exactUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
@@ -295,8 +333,8 @@ async function fetchLrclibLyrics(title: string, artist: string): Promise<string 
 
     if (exactResponse.ok) {
       const data = await exactResponse.json();
-      const text = (data.plainLyrics || data.syncedLyrics || "").toString();
-      if (text.trim().length > 50) return stripLrcTimestamps(text);
+      const picked = pickFrom(data);
+      if (picked) return picked;
     } else {
       console.warn("lrclib exact lookup failed:", exactResponse.status, await exactResponse.text());
     }
@@ -311,9 +349,7 @@ async function fetchLrclibLyrics(title: string, artist: string): Promise<string 
     const results = await searchResponse.json();
     const hit = Array.isArray(results) ? results.find((x: any) => x.plainLyrics || x.syncedLyrics) : null;
     if (!hit) return null;
-
-    const text = (hit.plainLyrics || hit.syncedLyrics || "").toString();
-    return text.trim().length > 50 ? stripLrcTimestamps(text) : null;
+    return pickFrom(hit);
   } catch (error) {
     console.error("lrclib lyrics fetch failed:", error instanceof Error ? error.message : error);
     return null;
