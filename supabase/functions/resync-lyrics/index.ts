@@ -7,6 +7,7 @@ import {
   fetchLrclibLyrics,
   fetchNeteaseLrc,
   fetchMegalobizLrc,
+  fetchSyairLrc,
   alignWithWhisper,
   mapTimestampsToLines,
   endSecondsForLine,
@@ -113,13 +114,14 @@ Deno.serve(async (req) => {
       fetchLrclibLyrics(title, artist).then((r) => r ? { src: "lrclib", ...r } : null),
       fetchNeteaseLrc(title, artist).then((r) => r ? { src: "netease", ...r } : null),
       fetchMegalobizLrc(title, artist).then((r) => r ? { src: "megalobiz", ...r } : null),
+      fetchSyairLrc(title, artist).then((r) => r ? { src: "syair", ...r } : null),
     ];
     const results = await Promise.all(providers);
     const outcome = (src: string) =>
       results.some((r) => r?.src === src && r.synced.length > 0) ? "synced" :
       results.some((r) => r?.src === src) ? "plain" : "miss";
     console.log(
-      `resync providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")}`,
+      `resync providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")} syair=${outcome("syair")}`,
     );
 
     let syncedTimestamps: number[] = [];

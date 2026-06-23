@@ -165,10 +165,9 @@ const TOOL = {
   },
 };
 
-function buildAiRequest(systemPrompt: string, userPrompt: string, maxTokens: number) {
+function buildAiRequest(model: string, systemPrompt: string, userPrompt: string, maxTokens: number) {
   return {
-    // flash-lite is significantly faster than flash for this structured tool-call workload
-    model: "google/gemini-2.5-flash-lite",
+    model,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -681,39 +680,32 @@ async function markSongFailed(
 async function generateLyricsInBackground(args: BgArgs): Promise<void> {
   const { supabase, songId, youtube_id, cleanedTitle, channel, GENIUS_TOKEN, LOVABLE_API_KEY } = args;
   try {
+    // ===== Genius lookup: race ALL query variants in parallel. The first
+    // non-null candidate wins; the others are discarded. =====
     let geniusHit: { title: string; artist: string; url: string } | null = null;
-
     try {
-      console.log("Searching Genius for:", cleanedTitle);
-      geniusHit = await searchGenius(cleanedTitle, GENIUS_TOKEN);
-
-      // Fallback 1: simplified query (drop feat./version/remix junk)
-      if (!geniusHit) {
-        const simplified = simplifyForSearch(cleanedTitle);
-        if (simplified && simplified !== cleanedTitle) {
-          console.log("Genius retry with simplified query:", simplified);
-          geniusHit = await searchGenius(simplified, GENIUS_TOKEN);
-        }
-      }
-
-      // Fallback 2: just the part before " - " (typically "Artist - Title")
-      if (!geniusHit) {
-        const split = splitTitleArtist(cleanedTitle);
-        if (split) {
-          const q = simplifyForSearch(`${split.artist} ${split.title}`);
-          console.log("Genius retry with artist+title split:", q);
-          geniusHit = await searchGenius(q, GENIUS_TOKEN);
-        }
-      }
-
-      // Fallback 3: append channel name
-      if (!geniusHit && channel) {
+      const geniusQueries = new Set<string>();
+      geniusQueries.add(cleanedTitle);
+      const simplified = simplifyForSearch(cleanedTitle);
+      if (simplified) geniusQueries.add(simplified);
+      const split = splitTitleArtist(cleanedTitle);
+      if (split) geniusQueries.add(simplifyForSearch(`${split.artist} ${split.title}`));
+      if (channel) {
         const ch = channel.replace(/\s*-?\s*(?:Topic|VEVO)\s*$/i, "").trim();
-        geniusHit = await searchGenius(`${simplifyForSearch(cleanedTitle)} ${ch}`, GENIUS_TOKEN);
+        if (ch) geniusQueries.add(`${simplifyForSearch(cleanedTitle)} ${ch}`);
+      }
+      console.log(`Searching Genius in parallel: ${geniusQueries.size} queries`);
+      const geniusResults = await Promise.allSettled(
+        [...geniusQueries].filter(Boolean).map((q) => searchGenius(q, GENIUS_TOKEN)),
+      );
+      for (const r of geniusResults) {
+        if (r.status === "fulfilled" && r.value) {
+          geniusHit = r.value;
+          break;
+        }
       }
     } catch (error) {
-      console.error("Genius search failed for selected track:", error instanceof Error ? error.message : error);
-      // Continue without Genius — lrclib/netease/megalobiz may still hit.
+      console.error("Genius parallel search failed:", error instanceof Error ? error.message : error);
     }
 
     if (!geniusHit) {
@@ -747,7 +739,15 @@ async function generateLyricsInBackground(args: BgArgs): Promise<void> {
     }
 
     try {
-      const lrclibPromises = lrclibAttempts
+      const { fetchSyairLrc, alignWithWhisper } = await import("../_shared/lyrics-sync.ts");
+
+      // ===== Lyrics + sync race: ALL providers fire concurrently. =====
+      // Lyrics text sources (5+): lrclib (×attempts), NetEase, Megalobiz,
+      // Syair, Genius, Firecrawl web fallback.
+      // Sync sources (5): lrclib-synced, NetEase-synced, Megalobiz-synced,
+      // Syair-synced, Whisper alignment (kicked off in parallel below).
+      type LyricResult = { src: string; text: string; synced: SyncedLine[] } | null;
+      const lrclibPromises: Promise<LyricResult>[] = lrclibAttempts
         .filter((a) => a.title && a.artist)
         .map((attempt) =>
           fetchLrclibLyrics(attempt.title, attempt.artist).then((r) =>
@@ -756,28 +756,74 @@ async function generateLyricsInBackground(args: BgArgs): Promise<void> {
               : null,
           ),
         );
-      const neteasePromise = (cleanTitle && cleanArtist)
+      const neteasePromise: Promise<LyricResult> = (cleanTitle && cleanArtist)
         ? fetchNeteaseLrc(cleanTitle, cleanArtist).then((r) =>
             r ? { src: "netease", text: r.plain, synced: r.synced } : null,
           )
         : Promise.resolve(null);
-      const megalobizPromise = (cleanTitle && cleanArtist)
+      const megalobizPromise: Promise<LyricResult> = (cleanTitle && cleanArtist)
         ? fetchMegalobizLrc(cleanTitle, cleanArtist).then((r) =>
             r ? { src: "megalobiz", text: r.plain, synced: r.synced } : null,
           )
         : Promise.resolve(null);
-      const geniusPromise = geniusHit
+      const syairPromise: Promise<LyricResult> = (cleanTitle && cleanArtist)
+        ? fetchSyairLrc(cleanTitle, cleanArtist).then((r) =>
+            r ? { src: "syair", text: r.plain, synced: r.synced } : null,
+          )
+        : Promise.resolve(null);
+      const geniusPromise: Promise<LyricResult> = geniusHit
         ? fetchGeniusLyrics(geniusHit.url).then((t) =>
             t && t.length >= 50 ? { src: "genius", text: t, synced: [] as SyncedLine[] } : null,
           )
         : Promise.resolve(null);
+      // Firecrawl web fallback now races alongside the others (no longer a
+      // serial fallback). Its result is preferred only when no native source
+      // returns usable plain text.
+      const fbTitleEarly = ytSplit?.title || cleanTitle;
+      const fbArtistEarly = ytSplit?.artist || cleanArtist;
+      const firecrawlPromise: Promise<LyricResult> = (fbTitleEarly && fbArtistEarly)
+        ? fetchWebFallbackLyrics(fbTitleEarly, fbArtistEarly, LOVABLE_API_KEY).then((t) =>
+            t ? { src: "firecrawl", text: t, synced: [] as SyncedLine[] } : null,
+          )
+        : Promise.resolve(null);
+
+      // Whisper alignment runs in parallel too. It needs plain text + youtube
+      // audio. We kick it off as soon as ANY native source resolves with
+      // usable plain text — the wrapper below races the providers internally
+      // and starts whisper without waiting for all of them.
+      let firstPlainResolve: (v: string | null) => void;
+      const firstPlain = new Promise<string | null>((res) => { firstPlainResolve = res; });
+      const tap = <T extends LyricResult>(p: Promise<T>): Promise<T> =>
+        p.then((r) => {
+          if (r && r.text && r.text.length >= 50) firstPlainResolve(r.text);
+          return r;
+        });
+      const whisperPromise: Promise<{ src: "whisper"; synced: SyncedLine[] } | null> =
+        (async () => {
+          const plain = await Promise.race<string | null>([
+            firstPlain,
+            new Promise<null>((res) => setTimeout(() => res(null), 25000)),
+          ]);
+          if (!plain) return null;
+          const aligned = await alignWithWhisper(youtube_id, plain, LOVABLE_API_KEY);
+          if (aligned && aligned.synced.length > 0) {
+            return { src: "whisper", synced: aligned.synced };
+          }
+          return null;
+        })();
 
       const parallelResults = await Promise.all([
-        ...lrclibPromises,
-        neteasePromise,
-        megalobizPromise,
-        geniusPromise,
+        ...lrclibPromises.map(tap),
+        tap(neteasePromise),
+        tap(megalobizPromise),
+        tap(syairPromise),
+        tap(geniusPromise),
+        tap(firecrawlPromise),
       ]);
+      // Ensure firstPlain resolves even if nothing usable came back, so the
+      // whisper promise can wrap up.
+      firstPlainResolve!(null);
+      const whisperResult = await whisperPromise;
 
       const outcome = (src: string) =>
         parallelResults.some((r) => r?.src === src && r.synced.length > 0)
@@ -786,44 +832,33 @@ async function generateLyricsInBackground(args: BgArgs): Promise<void> {
             ? "plain"
             : "miss";
       console.log(
-        `sync providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")} genius=${outcome("genius")}`,
+        `lyrics providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")} syair=${outcome("syair")} genius=${outcome("genius")} firecrawl=${outcome("firecrawl")} whisper=${whisperResult ? "synced" : "miss"}`,
       );
 
+      // Selection priority for plain text:
+      //   1. any provider that returned real synced timestamps
+      //   2. Genius / lrclib / NetEase / Megalobiz / Syair plain text
+      //   3. Firecrawl web fallback
       const syncedHit = parallelResults.find((r) => r && r.synced.length > 0);
-      const firstHit = syncedHit ?? parallelResults.find((r) => !!r) ?? null;
-      if (firstHit) {
-        rawLyrics = firstHit.text;
-        lyricsSource = firstHit.synced.length > 0 ? `${firstHit.src}_synced` : firstHit.src;
-        if (firstHit.synced.length > 0) {
-          syncedTimestamps = firstHit.synced.map((s) => s.time);
+      const NATIVE_ORDER = ["genius", "lrclib", "netease", "megalobiz", "syair"];
+      const nativeHit = NATIVE_ORDER
+        .map((s) => parallelResults.find((r) => r?.src === s))
+        .find((r) => !!r);
+      const firecrawlHit = parallelResults.find((r) => r?.src === "firecrawl");
+      const chosen = syncedHit ?? nativeHit ?? firecrawlHit ?? null;
+      if (chosen) {
+        rawLyrics = chosen.text;
+        lyricsSource = chosen.synced.length > 0 ? `${chosen.src}_synced` : chosen.src;
+        if (chosen.synced.length > 0) {
+          syncedTimestamps = chosen.synced.map((s) => s.time);
         }
       }
 
-      if (!rawLyrics || rawLyrics.length < 50) {
-        console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
-        const fbTitle = ytSplit?.title || cleanTitle;
-        const fbArtist = ytSplit?.artist || cleanArtist;
-        rawLyrics = await fetchWebFallbackLyrics(fbTitle, fbArtist, LOVABLE_API_KEY);
-        if (rawLyrics) {
-          lyricsSource = "web_fallback";
-          console.log("Web fallback succeeded, lyrics length:", rawLyrics.length);
-        }
-      }
-
-      if (rawLyrics && rawLyrics.length >= 50 && syncedTimestamps.length === 0) {
-        try {
-          const { alignWithWhisper } = await import("../_shared/lyrics-sync.ts");
-          const aligned = await alignWithWhisper(youtube_id, rawLyrics, LOVABLE_API_KEY);
-          if (aligned && aligned.synced.length > 0) {
-            syncedTimestamps = aligned.synced.map((s) => s.time);
-            lyricsSource = `${lyricsSource}+whisper_aligned`;
-            console.log("whisper alignment hit:", aligned.synced.length, "lines");
-          } else {
-            console.log("whisper alignment skipped/miss");
-          }
-        } catch (e) {
-          console.warn("whisper alignment errored:", e instanceof Error ? e.message : e);
-        }
+      // If no provider gave timestamps but Whisper succeeded, adopt them.
+      if (syncedTimestamps.length === 0 && whisperResult) {
+        syncedTimestamps = whisperResult.synced.map((s) => s.time);
+        lyricsSource = `${lyricsSource}+whisper_aligned`;
+        console.log("whisper alignment adopted:", whisperResult.synced.length, "lines");
       }
     } catch (error) {
       console.error("Lyrics retrieval failed:", error instanceof Error ? error.message : error);
@@ -891,7 +926,10 @@ async function generateLyricsInBackground(args: BgArgs): Promise<void> {
       `Sending lyrics to AI: ${rawLyrics.length} characters, ${inputLineCount} lyric lines, source=${lyricsSource}`,
     );
 
-    // ===== Phase 2: AI translation. =====
+    // ===== Phase 2: AI translation — race 3 models in parallel. =====
+    // First model whose tool_call yields a complete-enough translation wins;
+    // the others are discarded. Provides redundancy across providers so a
+    // single model hiccup never fails the song.
     let parsed: any;
     try {
       const userPrompt = `Song title: "${cleanTitle}"
@@ -901,50 +939,50 @@ Original Spanish lyrics:
 
 ${rawLyrics}`;
 
-      let aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(buildAiRequest(SYSTEM_PROMPT, userPrompt, 8192)),
-      });
+      const minLines = inputLineCount >= 10 ? Math.ceil(inputLineCount * 0.8) : 1;
+      const TRANSLATION_MODELS = [
+        "google/gemini-2.5-flash-lite", // fastest
+        "google/gemini-2.5-flash",      // higher quality fallback
+        "openai/gpt-5-mini",            // independent provider
+      ];
 
-      if (!aiResponse.ok) {
-        const text = await aiResponse.text();
-        console.error("AI translation error:", aiResponse.status, text);
-        await markSongFailed(supabase, songId, `AI translation HTTP ${aiResponse.status}`);
-        return;
-      }
-
-      let aiData = await aiResponse.json();
-      let toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall?.function?.arguments) {
-        console.warn("AI returned no tool call, retrying once");
-        aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const runOne = async (model: string): Promise<any> => {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify(buildAiRequest(`${SYSTEM_PROMPT}\nReturn ONLY by calling save_song.`, userPrompt, 12000)),
+          body: JSON.stringify(buildAiRequest(model, SYSTEM_PROMPT, userPrompt, 12000)),
         });
-
-        if (!aiResponse.ok) {
-          console.error("AI translation retry error:", aiResponse.status, await aiResponse.text());
-          await markSongFailed(supabase, songId, "AI translation retry failed");
-          return;
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`${model} HTTP ${res.status}: ${txt.slice(0, 200)}`);
         }
+        const data = await res.json();
+        const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+        if (!toolCall?.function?.arguments) {
+          throw new Error(`${model} returned no tool call`);
+        }
+        const p = JSON.parse(toolCall.function.arguments);
+        const outCount = Array.isArray(p.lines) ? p.lines.length : 0;
+        if (outCount < minLines) {
+          throw new Error(`${model} returned ${outCount} lines (need >=${minLines})`);
+        }
+        console.log(`AI translation winner: ${model} (${outCount} lines)`);
+        return p;
+      };
 
-        aiData = await aiResponse.json();
-        toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      }
-      if (!toolCall?.function?.arguments) {
-        await markSongFailed(supabase, songId, "AI did not return translated lyric lines");
-        return;
-      }
-      parsed = JSON.parse(toolCall.function.arguments);
+      const racers = TRANSLATION_MODELS.map((m) =>
+        runOne(m).catch((e) => {
+          console.warn("translation model failed:", e instanceof Error ? e.message : e);
+          throw e;
+        }),
+      );
 
-      const outputLineCount = Array.isArray(parsed.lines) ? parsed.lines.length : 0;
-      if (inputLineCount >= 10 && outputLineCount < Math.ceil(inputLineCount * 0.8)) {
-        console.error(
-          `Incomplete AI translation: input=${inputLineCount}, output=${outputLineCount}`,
-        );
-        await markSongFailed(supabase, songId, "AI returned incomplete lyrics");
+      try {
+        parsed = await Promise.any(racers);
+      } catch (aggregate) {
+        // All three failed — log each and surface the failure.
+        console.error("All translation models failed:", aggregate instanceof Error ? aggregate.message : aggregate);
+        await markSongFailed(supabase, songId, "All translation models failed");
         return;
       }
     } catch (error) {
@@ -952,6 +990,7 @@ ${rawLyrics}`;
       await markSongFailed(supabase, songId, "AI translation crashed");
       return;
     }
+
 
     // ===== Phase 3: UPDATE placeholder rows with AI translations. =====
     // Map synced timestamps onto AI lines (count may differ from cleanLines).
