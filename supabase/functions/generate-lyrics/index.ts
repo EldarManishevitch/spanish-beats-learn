@@ -715,17 +715,38 @@ ${rawLyrics}`;
       return jsonResponse({ error: "Failed to save song" }, 500);
     }
 
-    const rows = (parsed.lines ?? []).map((line: any, index: number) => ({
-      song_id: song.id,
-      line_index: index,
-      spanish_text: line.spanish_text,
-      hebrew_translation: null,
-      english_translation: line.english_translation,
-      pronunciation: line.pronunciation ?? null,
-      start_seconds: 0,
-      end_seconds: 0,
-      is_chorus: Boolean(line.is_chorus),
-    }));
+    // Map synced timestamps onto the AI-translated lines. When the AI line
+    // count != source line count, interpolate proportionally so highlighting
+    // still tracks the audio. When no synced source is available, leave 0/0
+    // and let the frontend's duration-based fallback take over.
+    const aiLines = (parsed.lines ?? []) as Array<any>;
+    const n = aiLines.length;
+    const m = syncedTimestamps.length;
+    const haveSync = m > 0 && n > 0;
+    const starts: number[] = new Array(n).fill(0);
+    if (haveSync) {
+      for (let i = 0; i < n; i++) {
+        const srcIdx = n === 1 ? 0 : Math.min(m - 1, Math.round((i * (m - 1)) / (n - 1)));
+        starts[i] = syncedTimestamps[srcIdx];
+      }
+    }
+    const rows = aiLines.map((line: any, index: number) => {
+      const start = haveSync ? starts[index] : 0;
+      const end = haveSync
+        ? (index < n - 1 ? Math.max(starts[index + 1], start + 0.5) : start + 4)
+        : 0;
+      return {
+        song_id: song.id,
+        line_index: index,
+        spanish_text: line.spanish_text,
+        hebrew_translation: null,
+        english_translation: line.english_translation,
+        pronunciation: line.pronunciation ?? null,
+        start_seconds: start,
+        end_seconds: end,
+        is_chorus: Boolean(line.is_chorus),
+      };
+    });
 
     if (rows.length === 0) {
       return jsonResponse(
