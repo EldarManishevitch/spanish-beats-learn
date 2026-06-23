@@ -253,12 +253,17 @@ export const SectionedSongPlayer = ({
       });
       playerRef.current = player;
 
-      player.on("ready", () => {
+      player.on("ready", async () => {
         if (cancelled) return;
         setVideoReady(true);
         registerPlayer(player);
         syncNow();
+        try {
+          const d = await player.getDuration();
+          if (!cancelled && typeof d === "number" && d > 0) setVideoDuration(d);
+        } catch { /* ignore */ }
       });
+
 
       player.on("stateChange", (event) => {
         if (cancelled) return;
