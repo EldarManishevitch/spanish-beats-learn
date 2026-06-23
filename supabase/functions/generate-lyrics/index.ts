@@ -287,7 +287,45 @@ async function searchGenius(query: string, token: string): Promise<{ title: stri
   }
 }
 
-async function fetchLrclibLyrics(title: string, artist: string): Promise<string | null> {
+// Parsed LRC line with its absolute start time in seconds.
+type SyncedLine = { time: number; text: string };
+
+function parseSyncedLrc(text: string): SyncedLine[] {
+  const out: SyncedLine[] = [];
+  for (const raw of text.split("\n")) {
+    // LRC format: [mm:ss.xx] text  (multi-prefix lines also exist)
+    const prefixes = raw.match(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g);
+    if (!prefixes) continue;
+    const content = raw.replace(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g, "").trim();
+    // Skip metadata-only lines like [ar:Maluma] and empty markers.
+    if (!content || /^\[[^\]]+\]$/.test(content)) continue;
+    for (const p of prefixes) {
+      const m = p.match(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/);
+      if (!m) continue;
+      const min = parseInt(m[1], 10);
+      const sec = parseInt(m[2], 10);
+      const frac = m[3] ? parseInt(m[3].padEnd(3, "0"), 10) / 1000 : 0;
+      out.push({ time: min * 60 + sec + frac, text: content });
+    }
+  }
+  return out.sort((a, b) => a.time - b.time);
+}
+
+async function fetchLrclibLyrics(
+  title: string,
+  artist: string,
+): Promise<{ plain: string; synced: SyncedLine[] } | null> {
+  const pickFrom = (data: any) => {
+    const syncedRaw = (data?.syncedLyrics || "").toString();
+    const plainRaw = (data?.plainLyrics || "").toString();
+    const synced = syncedRaw ? parseSyncedLrc(syncedRaw) : [];
+    const plain = plainRaw.trim().length >= 50
+      ? stripLrcTimestamps(plainRaw)
+      : synced.length
+        ? synced.map((l) => l.text).join("\n")
+        : "";
+    return plain.trim().length > 50 ? { plain, synced } : null;
+  };
   try {
     const headers = { "User-Agent": "LovableLyrics/1.0 (https://lovable.dev)" };
     const exactUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
@@ -295,8 +333,8 @@ async function fetchLrclibLyrics(title: string, artist: string): Promise<string 
 
     if (exactResponse.ok) {
       const data = await exactResponse.json();
-      const text = (data.plainLyrics || data.syncedLyrics || "").toString();
-      if (text.trim().length > 50) return stripLrcTimestamps(text);
+      const picked = pickFrom(data);
+      if (picked) return picked;
     } else {
       console.warn("lrclib exact lookup failed:", exactResponse.status, await exactResponse.text());
     }
@@ -311,9 +349,7 @@ async function fetchLrclibLyrics(title: string, artist: string): Promise<string 
     const results = await searchResponse.json();
     const hit = Array.isArray(results) ? results.find((x: any) => x.plainLyrics || x.syncedLyrics) : null;
     if (!hit) return null;
-
-    const text = (hit.plainLyrics || hit.syncedLyrics || "").toString();
-    return text.trim().length > 50 ? stripLrcTimestamps(text) : null;
+    return pickFrom(hit);
   } catch (error) {
     console.error("lrclib lyrics fetch failed:", error instanceof Error ? error.message : error);
     return null;
@@ -518,6 +554,9 @@ Deno.serve(async (req) => {
 
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
+    // Synced LRC timestamps (seconds) aligned 1:1 with rawLyrics lines when
+    // present. lrclib is the only source that ships these reliably.
+    let syncedTimestamps: number[] = [];
 
     const ytSplit = splitTitleArtist(cleanedTitle);
     const cleanArtist = geniusHit ? sanitizeArtist(geniusHit.artist) : (ytSplit?.artist ?? channel ?? "");
@@ -536,30 +575,39 @@ Deno.serve(async (req) => {
 
     try {
       // Fire lrclib attempts AND Genius scrape in parallel — first valid wins.
+      // lrclib hits also carry `synced` timestamps when available.
       const lrclibPromises = lrclibAttempts
         .filter((a) => a.title && a.artist)
         .map((attempt) =>
-          fetchLrclibLyrics(attempt.title, attempt.artist).then((t) =>
-            t && t.length >= 50 ? { src: "lrclib", text: t } : null,
+          fetchLrclibLyrics(attempt.title, attempt.artist).then((r) =>
+            r && r.plain.length >= 50
+              ? { src: "lrclib", text: r.plain, synced: r.synced }
+              : null,
           ),
         );
       const geniusPromise = geniusHit
         ? fetchGeniusLyrics(geniusHit.url).then((t) =>
-            t && t.length >= 50 ? { src: "genius", text: t } : null,
+            t && t.length >= 50 ? { src: "genius", text: t, synced: [] as SyncedLine[] } : null,
           )
         : Promise.resolve(null);
 
       const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
-      const firstHit = parallelResults.find((r) => !!r) ?? null;
+      // Prefer the first lrclib hit that actually shipped synced timestamps,
+      // otherwise fall back to any first valid result.
+      const syncedHit = parallelResults.find((r) => r && r.src === "lrclib" && r.synced.length > 0);
+      const firstHit = syncedHit ?? parallelResults.find((r) => !!r) ?? null;
       if (firstHit) {
         rawLyrics = firstHit.text;
-        lyricsSource = firstHit.src;
+        lyricsSource = firstHit.synced.length > 0 ? "lrclib_synced" : firstHit.src;
+        // Build a per-line start_seconds aligned with the stripped plain text
+        // we hand to the AI. lrclib's plainLyrics line order matches synced.
+        if (firstHit.synced.length > 0) {
+          syncedTimestamps = firstHit.synced.map((s) => s.time);
+        }
       }
 
       if (!rawLyrics || rawLyrics.length < 50) {
         console.warn("Genius + lrclib failed, attempting web search fallback (Firecrawl)");
-        // Prefer YouTube-derived artist/title — Genius hits are often compilation pages
-        // ("Genius en Español — Sencillos del Mes…") that poison the web search.
         const fbTitle = ytSplit?.title || cleanTitle;
         const fbArtist = ytSplit?.artist || cleanArtist;
         rawLyrics = await fetchWebFallbackLyrics(fbTitle, fbArtist, LOVABLE_API_KEY);
@@ -667,17 +715,38 @@ ${rawLyrics}`;
       return jsonResponse({ error: "Failed to save song" }, 500);
     }
 
-    const rows = (parsed.lines ?? []).map((line: any, index: number) => ({
-      song_id: song.id,
-      line_index: index,
-      spanish_text: line.spanish_text,
-      hebrew_translation: null,
-      english_translation: line.english_translation,
-      pronunciation: line.pronunciation ?? null,
-      start_seconds: 0,
-      end_seconds: 0,
-      is_chorus: Boolean(line.is_chorus),
-    }));
+    // Map synced timestamps onto the AI-translated lines. When the AI line
+    // count != source line count, interpolate proportionally so highlighting
+    // still tracks the audio. When no synced source is available, leave 0/0
+    // and let the frontend's duration-based fallback take over.
+    const aiLines = (parsed.lines ?? []) as Array<any>;
+    const n = aiLines.length;
+    const m = syncedTimestamps.length;
+    const haveSync = m > 0 && n > 0;
+    const starts: number[] = new Array(n).fill(0);
+    if (haveSync) {
+      for (let i = 0; i < n; i++) {
+        const srcIdx = n === 1 ? 0 : Math.min(m - 1, Math.round((i * (m - 1)) / (n - 1)));
+        starts[i] = syncedTimestamps[srcIdx];
+      }
+    }
+    const rows = aiLines.map((line: any, index: number) => {
+      const start = haveSync ? starts[index] : 0;
+      const end = haveSync
+        ? (index < n - 1 ? Math.max(starts[index + 1], start + 0.5) : start + 4)
+        : 0;
+      return {
+        song_id: song.id,
+        line_index: index,
+        spanish_text: line.spanish_text,
+        hebrew_translation: null,
+        english_translation: line.english_translation,
+        pronunciation: line.pronunciation ?? null,
+        start_seconds: start,
+        end_seconds: end,
+        is_chorus: Boolean(line.is_chorus),
+      };
+    });
 
     if (rows.length === 0) {
       return jsonResponse(

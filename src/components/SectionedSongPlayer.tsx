@@ -84,6 +84,9 @@ export const SectionedSongPlayer = ({
   const [activeYoutubeId, setActiveYoutubeId] = useState<string | null>(youtubeId ?? null);
   const [healing, setHealing] = useState(false);
   const [checkingVideo, setCheckingVideo] = useState(false);
+  // Video duration in seconds — captured on player ready. Used to build a
+  // fallback timing map for songs whose lyric_lines were saved with 0/0.
+  const [videoDuration, setVideoDuration] = useState<number>(0);
   const healedIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => { setActiveYoutubeId(youtubeId ?? null); healedIdsRef.current = new Set(); }, [youtubeId, songId]);
 
@@ -98,6 +101,38 @@ export const SectionedSongPlayer = ({
     const sorted = [...liveLines].sort((a, b) => a.line_index - b.line_index);
     return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
   }, [liveLines]);
+
+  // Detect songs whose lyric_lines were saved with no real timestamps (all
+  // start/end = 0). When that happens AND we know the YouTube video duration,
+  // synthesize a per-line timing map by spreading the song uniformly across
+  // the audio. It's not perfect, but it keeps the highlighter functional
+  // instead of failing silently on the entire backlog of zero-timestamp rows.
+  const needsFallbackTiming = useMemo(() => {
+    if (liveLines.length === 0) return false;
+    return liveLines.every((l) => (l.start_seconds ?? 0) === 0 && (l.end_seconds ?? 0) === 0);
+  }, [liveLines]);
+
+  const fallbackTimings = useMemo<Map<string, { start: number; end: number }>>(() => {
+    const map = new Map<string, { start: number; end: number }>();
+    if (!needsFallbackTiming || videoDuration <= 0 || liveLines.length === 0) return map;
+    // Reserve a tiny lead-in so the first line isn't already "active" at t=0.
+    const leadIn = Math.min(2, videoDuration * 0.02);
+    const usable = Math.max(1, videoDuration - leadIn);
+    const per = usable / liveLines.length;
+    const sorted = [...liveLines].sort((a, b) => a.line_index - b.line_index);
+    sorted.forEach((line, i) => {
+      const start = leadIn + i * per;
+      map.set(line.id, { start, end: start + per });
+    });
+    if (typeof window !== "undefined" && import.meta.env.DEV) {
+      console.warn(
+        `[lyrics-sync] No DB timestamps for song ${songId}. Using duration-based fallback (${liveLines.length} lines / ${videoDuration.toFixed(1)}s).`,
+      );
+    }
+    return map;
+  }, [needsFallbackTiming, videoDuration, liveLines, songId]);
+
+
 
   // Sections are "ready" once at least one line is tagged is_chorus=true.
   // Until then we still render Full Song immediately and show a neon indicator
@@ -131,6 +166,9 @@ export const SectionedSongPlayer = ({
     syncNow,
   } = useLyricsSync();
   const lastScrolledLineId = useRef<string | null>(null);
+
+
+
 
 
 
@@ -248,12 +286,17 @@ export const SectionedSongPlayer = ({
       });
       playerRef.current = player;
 
-      player.on("ready", () => {
+      player.on("ready", async () => {
         if (cancelled) return;
         setVideoReady(true);
         registerPlayer(player);
         syncNow();
+        try {
+          const d = await player.getDuration();
+          if (!cancelled && typeof d === "number" && d > 0) setVideoDuration(d);
+        } catch { /* ignore */ }
       });
+
 
       player.on("stateChange", (event) => {
         if (cancelled) return;
@@ -406,9 +449,13 @@ export const SectionedSongPlayer = ({
 
             {active?.lines.map((line, lineIdx) => {
               const words = line.spanish_text.split(/\s+/);
+              // Prefer real DB timestamps; fall back to the duration-spread
+              // map when the song's lines are all 0/0 (legacy / no LRC).
+              const fb = fallbackTimings.get(line.id);
+              const startT = fb ? fb.start : line.start_seconds;
+              const endT = fb ? fb.end : line.end_seconds;
               const isActive =
-                currentPlaybackTime >= line.start_seconds &&
-                currentPlaybackTime <= line.end_seconds;
+                endT > 0 && currentPlaybackTime >= startT && currentPlaybackTime <= endT;
               return (
                 <div
                   key={line.id}
@@ -420,18 +467,17 @@ export const SectionedSongPlayer = ({
                   }}
                   className={`rounded-lg px-3 py-2 transition-all duration-300 ${
                     isActive
-                      ? "opacity-100 scale-[1.01] bg-neutral-900 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
-                      : "opacity-30"
+                      ? "scale-[1.02] bg-orange-50 border-l-4 border-orange-500 pl-3 shadow-sm"
+                      : "border-l-4 border-transparent pl-3"
                   }`}
                 >
                   <p
                     className={`text-base md:text-lg leading-relaxed transition-all duration-300 ${
                       isActive
-                        ? "text-white font-bold opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-                        : "font-medium text-gray-400"
+                        ? "text-black font-extrabold text-xl"
+                        : "font-medium text-slate-600 opacity-80"
                     }`}
                   >
-
                     {words.map((w, j) => (
                       <span key={j}>
                         <TranslateWord
@@ -444,7 +490,9 @@ export const SectionedSongPlayer = ({
                     ))}
                   </p>
                   {showEnglish && line.english_translation && (
-                    <p className="text-sm text-muted-foreground italic">{line.english_translation}</p>
+                    <p className={`text-sm italic ${isActive ? "text-slate-700" : "text-slate-500"}`}>
+                      {line.english_translation}
+                    </p>
                   )}
                 </div>
               );
