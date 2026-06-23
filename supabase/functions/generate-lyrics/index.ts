@@ -706,6 +706,7 @@ ${rawLyrics}`;
         difficulty: parsed.difficulty || "intermediate",
         youtube_id,
         album_art_url: safeThumb,
+        is_synced: syncedTimestamps.length > 0,
       })
       .select("id")
       .single();
