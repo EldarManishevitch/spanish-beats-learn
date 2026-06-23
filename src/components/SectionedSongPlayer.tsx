@@ -85,6 +85,7 @@ export const SectionedSongPlayer = ({
   const [activeYoutubeId, setActiveYoutubeId] = useState<string | null>(youtubeId ?? null);
   const [healing, setHealing] = useState(false);
   const [checkingVideo, setCheckingVideo] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   // Video duration in seconds — captured on player ready. Used to build a
   // fallback timing map for songs whose lyric_lines were saved with 0/0.
   const [videoDuration, setVideoDuration] = useState<number>(0);
