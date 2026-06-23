@@ -926,7 +926,10 @@ async function generateLyricsInBackground(args: BgArgs): Promise<void> {
       `Sending lyrics to AI: ${rawLyrics.length} characters, ${inputLineCount} lyric lines, source=${lyricsSource}`,
     );
 
-    // ===== Phase 2: AI translation. =====
+    // ===== Phase 2: AI translation — race 3 models in parallel. =====
+    // First model whose tool_call yields a complete-enough translation wins;
+    // the others are discarded. Provides redundancy across providers so a
+    // single model hiccup never fails the song.
     let parsed: any;
     try {
       const userPrompt = `Song title: "${cleanTitle}"
@@ -936,50 +939,50 @@ Original Spanish lyrics:
 
 ${rawLyrics}`;
 
-      let aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(buildAiRequest(SYSTEM_PROMPT, userPrompt, 8192)),
-      });
+      const minLines = inputLineCount >= 10 ? Math.ceil(inputLineCount * 0.8) : 1;
+      const TRANSLATION_MODELS = [
+        "google/gemini-2.5-flash-lite", // fastest
+        "google/gemini-2.5-flash",      // higher quality fallback
+        "openai/gpt-5-mini",            // independent provider
+      ];
 
-      if (!aiResponse.ok) {
-        const text = await aiResponse.text();
-        console.error("AI translation error:", aiResponse.status, text);
-        await markSongFailed(supabase, songId, `AI translation HTTP ${aiResponse.status}`);
-        return;
-      }
-
-      let aiData = await aiResponse.json();
-      let toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall?.function?.arguments) {
-        console.warn("AI returned no tool call, retrying once");
-        aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const runOne = async (model: string): Promise<any> => {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify(buildAiRequest(`${SYSTEM_PROMPT}\nReturn ONLY by calling save_song.`, userPrompt, 12000)),
+          body: JSON.stringify(buildAiRequest(model, SYSTEM_PROMPT, userPrompt, 12000)),
         });
-
-        if (!aiResponse.ok) {
-          console.error("AI translation retry error:", aiResponse.status, await aiResponse.text());
-          await markSongFailed(supabase, songId, "AI translation retry failed");
-          return;
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`${model} HTTP ${res.status}: ${txt.slice(0, 200)}`);
         }
+        const data = await res.json();
+        const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+        if (!toolCall?.function?.arguments) {
+          throw new Error(`${model} returned no tool call`);
+        }
+        const p = JSON.parse(toolCall.function.arguments);
+        const outCount = Array.isArray(p.lines) ? p.lines.length : 0;
+        if (outCount < minLines) {
+          throw new Error(`${model} returned ${outCount} lines (need >=${minLines})`);
+        }
+        console.log(`AI translation winner: ${model} (${outCount} lines)`);
+        return p;
+      };
 
-        aiData = await aiResponse.json();
-        toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      }
-      if (!toolCall?.function?.arguments) {
-        await markSongFailed(supabase, songId, "AI did not return translated lyric lines");
-        return;
-      }
-      parsed = JSON.parse(toolCall.function.arguments);
+      const racers = TRANSLATION_MODELS.map((m) =>
+        runOne(m).catch((e) => {
+          console.warn("translation model failed:", e instanceof Error ? e.message : e);
+          throw e;
+        }),
+      );
 
-      const outputLineCount = Array.isArray(parsed.lines) ? parsed.lines.length : 0;
-      if (inputLineCount >= 10 && outputLineCount < Math.ceil(inputLineCount * 0.8)) {
-        console.error(
-          `Incomplete AI translation: input=${inputLineCount}, output=${outputLineCount}`,
-        );
-        await markSongFailed(supabase, songId, "AI returned incomplete lyrics");
+      try {
+        parsed = await Promise.any(racers);
+      } catch (aggregate) {
+        // All three failed — log each and surface the failure.
+        console.error("All translation models failed:", aggregate instanceof Error ? aggregate.message : aggregate);
+        await markSongFailed(supabase, songId, "All translation models failed");
         return;
       }
     } catch (error) {
@@ -987,6 +990,7 @@ ${rawLyrics}`;
       await markSongFailed(supabase, songId, "AI translation crashed");
       return;
     }
+
 
     // ===== Phase 3: UPDATE placeholder rows with AI translations. =====
     // Map synced timestamps onto AI lines (count may differ from cleanLines).
