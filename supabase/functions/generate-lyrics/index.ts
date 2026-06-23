@@ -665,8 +665,8 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Fire lrclib attempts AND Genius scrape in parallel — first valid wins.
-      // lrclib hits also carry `synced` timestamps when available.
+      // Fire all sync providers AND Genius scrape in parallel — first synced
+      // hit wins; otherwise first plain-text hit wins.
       const lrclibPromises = lrclibAttempts
         .filter((a) => a.title && a.artist)
         .map((attempt) =>
@@ -676,22 +676,46 @@ Deno.serve(async (req) => {
               : null,
           ),
         );
+      const neteasePromise = (cleanTitle && cleanArtist)
+        ? fetchNeteaseLrc(cleanTitle, cleanArtist).then((r) =>
+            r ? { src: "netease", text: r.plain, synced: r.synced } : null,
+          )
+        : Promise.resolve(null);
+      const megalobizPromise = (cleanTitle && cleanArtist)
+        ? fetchMegalobizLrc(cleanTitle, cleanArtist).then((r) =>
+            r ? { src: "megalobiz", text: r.plain, synced: r.synced } : null,
+          )
+        : Promise.resolve(null);
       const geniusPromise = geniusHit
         ? fetchGeniusLyrics(geniusHit.url).then((t) =>
             t && t.length >= 50 ? { src: "genius", text: t, synced: [] as SyncedLine[] } : null,
           )
         : Promise.resolve(null);
 
-      const parallelResults = await Promise.all([...lrclibPromises, geniusPromise]);
-      // Prefer the first lrclib hit that actually shipped synced timestamps,
-      // otherwise fall back to any first valid result.
-      const syncedHit = parallelResults.find((r) => r && r.src === "lrclib" && r.synced.length > 0);
+      const parallelResults = await Promise.all([
+        ...lrclibPromises,
+        neteasePromise,
+        megalobizPromise,
+        geniusPromise,
+      ]);
+
+      // Provider outcome log for coverage tracking
+      const outcome = (src: string) =>
+        parallelResults.some((r) => r?.src === src && r.synced.length > 0)
+          ? "synced"
+          : parallelResults.some((r) => r?.src === src)
+            ? "plain"
+            : "miss";
+      console.log(
+        `sync providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")} genius=${outcome("genius")}`,
+      );
+
+      // Prefer any provider with real synced timestamps, otherwise first valid result.
+      const syncedHit = parallelResults.find((r) => r && r.synced.length > 0);
       const firstHit = syncedHit ?? parallelResults.find((r) => !!r) ?? null;
       if (firstHit) {
         rawLyrics = firstHit.text;
-        lyricsSource = firstHit.synced.length > 0 ? "lrclib_synced" : firstHit.src;
-        // Build a per-line start_seconds aligned with the stripped plain text
-        // we hand to the AI. lrclib's plainLyrics line order matches synced.
+        lyricsSource = firstHit.synced.length > 0 ? `${firstHit.src}_synced` : firstHit.src;
         if (firstHit.synced.length > 0) {
           syncedTimestamps = firstHit.synced.map((s) => s.time);
         }
