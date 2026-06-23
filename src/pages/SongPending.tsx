@@ -23,6 +23,7 @@ const SongPending = () => {
   const meta = entry?.optimistic;
   const [progress, setProgress] = useState(4);
   const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!youtubeId) {
@@ -30,8 +31,10 @@ const SongPending = () => {
       return;
     }
     const e = getCachedByYoutubeId(youtubeId);
+    // No active generation in this tab (e.g. direct link / refresh): stay on
+    // the pending screen with whatever optimistic metadata we have rather
+    // than bouncing the user back to the dashboard.
     if (!e?.generation) {
-      navigate("/", { replace: true });
       return;
     }
     let cancelled = false;
@@ -59,18 +62,18 @@ const SongPending = () => {
           setTimeout(() => !cancelled && setProgress(100), 250);
           setTimeout(() => !cancelled && navigate(`/song/${res.song_id}`, { replace: true }), 600);
         } else {
-          toast({ title: "Generation failed", description: res?.error ?? "Unknown error", variant: "destructive" });
-          navigate("/", { replace: true });
+          const msg = res?.error ?? "Unknown error";
+          toast({ title: "Generation failed", description: msg, variant: "destructive" });
+          // Do NOT redirect home — keep the user here so backend hiccups
+          // (e.g. YOUTUBE_QUOTA_EXCEEDED) don't kick them out of the flow.
+          setFailed(msg);
         }
       })
       .catch((err) => {
         if (cancelled) return;
-        toast({
-          title: "Generation failed",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
-        navigate("/", { replace: true });
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        toast({ title: "Generation failed", description: msg, variant: "destructive" });
+        setFailed(msg);
       });
     return () => {
       cancelled = true;
@@ -106,11 +109,19 @@ const SongPending = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-medium text-primary drop-shadow-[0_0_8px_hsl(var(--primary))] animate-pulse">
-            {stageLabel(pct)}
+            {failed ? "Background processing paused — you can retry from here." : stageLabel(pct)}
           </p>
-          <span className="text-sm font-mono text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{pct}%</span>
+          <span className="text-sm font-mono text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{failed ? "—" : `${pct}%`}</span>
         </div>
+        {failed && (
+          <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="font-medium">We couldn't finish generating this song.</p>
+            <p className="opacity-80 mt-1 break-words">{failed}</p>
+            <p className="opacity-70 mt-2 text-xs">You're still on the song page — head back to search to try again when you're ready.</p>
+          </div>
+        )}
         <div className="relative h-3 w-full rounded-full bg-primary/10 overflow-hidden ritmo-border">
+
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-accent shadow-[0_0_18px_hsl(var(--primary)),0_0_36px_hsl(var(--primary)/0.6)] transition-[width] duration-300 ease-out"
             style={{ width: `${pct}%` }}
