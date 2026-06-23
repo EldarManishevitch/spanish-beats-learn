@@ -52,18 +52,36 @@ const SongPending = () => {
       });
     }, 350);
 
-    e.generation
+    // Safety net: if the edge function silently hangs (no response, no error),
+    // abort the UI after 60s so the user isn't stuck at 4% indefinitely.
+    const TIMEOUT_MS = 60_000;
+    let timeoutHit = false;
+    const timeoutPromise = new Promise<{ error: string }>((resolve) => {
+      setTimeout(() => {
+        timeoutHit = true;
+        resolve({
+          error:
+            "This is taking longer than expected. The lyrics service may be unavailable — please try another song or try again in a moment.",
+        });
+      }, TIMEOUT_MS);
+    });
+
+    Promise.race([e.generation, timeoutPromise])
       .then((res) => {
         if (cancelled) return;
-        if (res?.song_id) {
+        if (!timeoutHit && res && "song_id" in res && res.song_id) {
           setDone(true);
           setProgress(85);
           // Brief final stage flourish before navigating.
           setTimeout(() => !cancelled && setProgress(100), 250);
           setTimeout(() => !cancelled && navigate(`/song/${res.song_id}`, { replace: true }), 600);
         } else {
-          const msg = res?.error ?? "Unknown error";
-          toast({ title: "Generation failed", description: msg, variant: "destructive" });
+          const msg = (res as { error?: string })?.error ?? "Unknown error";
+          toast({
+            title: timeoutHit ? "Generation timed out" : "Generation failed",
+            description: msg,
+            variant: "destructive",
+          });
           // Do NOT redirect home — keep the user here so backend hiccups
           // (e.g. YOUTUBE_QUOTA_EXCEEDED) don't kick them out of the flow.
           setFailed(msg);
