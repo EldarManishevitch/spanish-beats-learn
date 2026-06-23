@@ -7,6 +7,7 @@ import {
   fetchLrclibLyrics,
   fetchNeteaseLrc,
   fetchMegalobizLrc,
+  fetchSyairLrc,
   alignWithWhisper,
   mapTimestampsToLines,
   endSecondsForLine,
