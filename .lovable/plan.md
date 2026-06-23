@@ -1,105 +1,89 @@
-# Lyrics Sync That Works Like Spotify / Apple Music
+# Expand synced lyrics coverage
 
-## How Spotify & Apple Music actually do it
+Right now we only check lrclib.net for synced lyrics. When it 404s the song falls back to plain text + AI translation, which trips the "Static lyrics — sync unavailable" UI. We'll add two more community LRC sources and a Gemini-based forced-alignment pass, run all of them in parallel, and pick the first source that returns real per-line timestamps.
 
-Both rely on **per-line timestamps from the source** (Musixmatch's `richsync`/`subtitle`, Apple's TTML lyrics). They never *guess* where the intro ends — they just don't activate any line until the first real timestamp fires. If a track has no timed lyrics, they fall back to **static, non-highlighting lyrics** (Apple calls these "Lyrics", vs "Sync Lyrics"). They never pretend to sync.
+## Strategy
 
-That's the model we should copy. The earlier "guess the intro length" heuristic is wrong because real intros vary from 0s to 60s+ and no clamp covers them all.
+Race four sync providers concurrently in `generate-lyrics`. First one that returns synced lines wins; the rest are dropped.
 
-## Root causes (generic, not song-specific)
-
-1. **Backend collapses gaps.** `end_seconds` is forced to `nextStart`, so during any instrumental section (intro is just one case — also mid-song breaks, bridges, outros) the previous line stays "active" until the singer returns.
-2. **Frontend trusts that bad `end_seconds`** for hundreds of legacy rows.
-3. **Zero-timestamp songs fake a uniform spread** across the full track, which is wrong for every song with any intro/outro/break.
-
-## What to change
-
-### 1. Backend — preserve real LRC gaps (`supabase/functions/generate-lyrics/index.ts`)
-
-- When AI line count == LRC line count, do a strict 1:1 timestamp mapping.
-- Compute `end_seconds` per line so it reflects *singing*, not "the gap until the next line":
-  ```
-  estimatedSung = clamp(wordCount * 0.45 + 0.8, 1.8, 7)   // seconds
-  end           = min(nextStart, start + estimatedSung)
-  ```
-  Last line uses `start + estimatedSung`. This automatically handles intros (line 1's `start` is whatever LRC says — 3s, 20s, 60s, anything), mid-song breaks, and outros, with zero heuristics.
-- Persist a new boolean column `songs.is_synced` (true when we wrote real LRC timestamps, false otherwise). Used by the frontend to decide whether to highlight at all.
-
-### 2. Frontend — cap legacy rows the same way at render time (`src/components/SectionedSongPlayer.tsx`)
-
-Existing rows already have `end = nextStart`. Fix without a migration:
-```
-estimatedEnd = start + clamp(wordCount * 0.45 + 0.8, 1.8, 7)
-effectiveEnd = min(line.end_seconds, estimatedEnd)
-```
-Use `effectiveEnd` in the `isActive` check. Highlight drops naturally during every instrumental, regardless of length.
-
-### 3. Drop the "uniform spread" fake-sync for unsynced songs
-
-Remove the existing `fallbackTimings` (which spreads lines 0 → duration). For songs without real timestamps:
-- Render lyrics in **static mode** (Apple Music style): no highlight, no auto-scroll, full opacity on every line, manual scroll only.
-- Show a small one-time pill at the top of the lyrics box:
-  ```tsx
-  <span className="… text-xs text-[#2C2A29]/60">
-    Static lyrics — sync unavailable for this track
-  </span>
-  ```
-- Detect via the new `songs.is_synced` flag (and as a safety net: `liveLines.every(l => l.start_seconds === 0 && l.end_seconds === 0)`).
-
-This is exactly Apple Music's behavior and is honest to the user instead of pretending.
-
-### 4. Generic intro indicator for *synced* songs
-
-For songs with real timestamps, derive:
-- `firstStart` = smallest `start_seconds` in the active section.
-- `isIntro` = `videoReady && currentPlaybackTime < firstStart - 0.2`.
-
-Render a subtle pill **above the first line** only while `isIntro` is true. Same component shows for intros of any length — 2s, 20s, or 60s — because it's bound to the real first timestamp, not a clamp:
-```tsx
-{isIntro && (
-  <div className="flex justify-center mb-2 animate-fade-in">
-    <span className="inline-flex items-center gap-1.5 rounded-full
-                     border border-[#2C2A29]/15 bg-[#FBF9F6]
-                     px-3 py-1 text-xs font-medium text-[#2C2A29]/70
-                     transition-opacity duration-300">
-      🎵 Instrumental…
-    </span>
-  </div>
-)}
-```
-Hidden during mid-song gaps (Spotify/Apple don't show anything there either — just no active line).
-
-### 5. Smooth handoff during mid-song gaps
-
-When no line is active mid-song, keep the previously active line scrolled into view in its inactive style (`lastScrolledLineId` already does this — just don't reset it on null active). No new auto-scroll behavior.
-
-## Migration
-
-```sql
-ALTER TABLE public.songs
-  ADD COLUMN IF NOT EXISTS is_synced boolean NOT NULL DEFAULT false;
-
--- Backfill: any song whose lyric_lines have a non-zero start_seconds is synced.
-UPDATE public.songs s
-   SET is_synced = true
- WHERE EXISTS (
-   SELECT 1 FROM public.lyric_lines l
-    WHERE l.song_id = s.id AND l.start_seconds > 0
- );
+```text
+                  ┌─ lrclib.net (current)
+                  │
+race(Promise.any) ┼─ NetEase Cloud Music (search → lyric API)
+                  │
+                  ├─ Megalobiz (HTML scrape → .lrc download)
+                  │
+                  └─ Gemini forced alignment (audio URL → timed transcript → line align)
 ```
 
-No new RLS policy needed (column added to an existing readable table).
+If all four fail to produce synced timestamps, we keep today's behavior: use whichever plain-text source returned (lrclib/Genius/Firecrawl) and render Static Mode.
+
+## Changes
+
+### 1. `supabase/functions/generate-lyrics/index.ts`
+
+Add three new fetchers next to `fetchLrclibLyrics`, each returning the existing `{ plain, synced: SyncedLine[] }` shape so the rest of the pipeline doesn't change.
+
+**a. NetEase Cloud Music** (free, no key)
+- `GET https://music.163.com/api/search/get?s=<title artist>&type=1&limit=5` → pick best song id
+- `GET https://music.163.com/api/song/lyric?id=<id>&lv=1&tv=-1` → returns `lrc.lyric` in standard LRC format
+- Parse with existing `parseSyncedLrc`. Strong catalog for Latin/Spanish pop.
+
+**b. Megalobiz** (free, no key)
+- `GET https://www.megalobiz.com/search/all?qry=<title artist>&display=song` → scrape first `<a class="entity_name" href="/lrc/maker/...">`
+- `GET https://www.megalobiz.com/lrc/maker/<slug>` → extract `<div ... id="lrc_<id>_lyrics">…</div>` LRC block
+- Parse with `parseSyncedLrc`.
+
+**c. Gemini forced alignment** (paid, Lovable AI credits)
+- Only fires when we already have plain lyrics from lrclib/Genius/Firecrawl but no synced timestamps from a–b.
+- Single call to `google/gemini-2.5-pro` via `https://ai.gateway.lovable.dev/v1/chat/completions` with:
+  - YouTube URL as `fileData` part (`fileUri: https://www.youtube.com/watch?v=<id>`, `mimeType: video/youtube`). Gemini accepts public YouTube URLs natively.
+  - The plain lyrics in the prompt.
+  - A `force_align` tool schema requiring `[{ index, start_seconds }]` for every input line, monotonically increasing, `start_seconds >= 0`.
+- Validate the tool output: must cover ≥90% of lines and be sorted; otherwise discard.
+
+**d. Race them**
+Replace the current `Promise.all([...lrclibPromises, geniusPromise])` block (lines ~594–607) with:
+
+```ts
+const syncProviders = [
+  ...lrclibPromises,            // already returns { src:'lrclib', text, synced }
+  fetchNeteaseLrc(cleanTitle, cleanArtist),
+  fetchMegalobizLrc(cleanTitle, cleanArtist),
+];
+const results = await Promise.all(syncProviders);
+const synced = results.find((r) => r?.synced.length > 0);
+const plain  = synced ?? results.find((r) => r?.text) ?? (await geniusPromise) ?? null;
+
+if (plain && !synced) {
+  // Last-chance forced alignment against the YouTube audio
+  const aligned = await alignWithGemini(youtube_id, plain.text, LOVABLE_API_KEY);
+  if (aligned) { rawLyrics = plain.text; syncedTimestamps = aligned; lyricsSource = "gemini_aligned"; }
+}
+```
+
+Everything downstream (`syncedTimestamps`, `is_synced`, `start_seconds`/`end_seconds` capping) stays as-is.
+
+**e. Logging**
+Log each provider's outcome (`lrclib=hit/miss`, `netease=hit/miss`, `megalobiz=hit/miss`, `gemini_align=hit/miss/skipped`) so we can see coverage in `edge_function_logs`.
+
+### 2. Frontend
+No changes. The existing `is_synced`/`effectiveTimings`/intro pill logic already handles whatever timestamps land in `lyric_lines`.
+
+### 3. Database
+No schema changes. `songs.is_synced` already exists.
 
 ## Out of scope
-
-- No re-translation, no schema changes beyond the one column.
-- No color/layout changes to the lyrics card.
-- Word-level karaoke-style highlighting (Spotify "Behind the Lyrics") — would need richsync data we don't have.
+- Musixmatch (user declined; needs paid key anyway).
+- Re-running alignment for already-saved unsynced songs (can add a backfill button later).
+- Word-level karaoke highlighting.
+- Translation changes.
 
 ## Verification
+1. Pick the user's failing track from `/song/2e605231-…` and re-trigger generation — confirm `lyrics_source` in logs becomes `netease`/`megalobiz`/`lrclib_synced`/`gemini_aligned` instead of `genius`/`web_fallback`.
+2. Open the song page → the "Static lyrics — sync unavailable" pill is gone, intro pill shows while `t < firstStart`, lines highlight on beat with gaps during instrumentals.
+3. Spot-check 3 more "Spotify-synced but lrclib-missing" tracks — at least one of NetEase/Megalobiz/Gemini should hit each.
+4. `edge_function_logs`: zero new 5xx, Gemini alignment only fires when the first three miss.
 
-1. Song with a 3s intro: pill shows for ~3s, line 1 activates on time.
-2. Song with a 45s intro: pill shows for ~45s, no line falsely activates before the singer.
-3. Mid-song 15s instrumental break: highlight drops within ~3–5s of the last sung line, returns when the next line starts.
-4. Song without LRC sync: static lyrics, no highlight, "Static lyrics — sync unavailable" pill, manual scroll.
-5. New song generated after deploy: `songs.is_synced = true`, `lyric_lines.end_seconds` reflects real silence.
+## Cost note
+Gemini 2.5 Pro on a 3-minute YouTube video is roughly the same credit cost as a normal translation call. It only runs when lrclib, NetEase, and Megalobiz all miss, so most songs cost nothing extra.
