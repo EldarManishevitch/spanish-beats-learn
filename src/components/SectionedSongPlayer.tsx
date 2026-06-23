@@ -543,32 +543,8 @@ export const SectionedSongPlayer = ({
                   variant="outline"
                   disabled={resyncing}
                   onClick={async () => {
-                    setResyncing(true);
-                    setSyncStatus("checking");
-                    try {
-                      const { data, error } = await supabase.functions.invoke("resync-lyrics", {
-                        body: { song_id: songId },
-                      });
-                      if (error) throw error;
-                      if (!data?.success) {
-                        toast.info(data?.message ?? "Still no synced lyrics found. Try again later.");
-                        setSyncStatus("static");
-                        return;
-                      }
-                      toast.success(`Synced via ${data.source} (${data.updated_lines} lines)`);
-                      const { data: fresh } = await supabase
-                        .from("lyric_lines")
-                        .select("id, line_index, spanish_text, pronunciation, english_translation, start_seconds, end_seconds, is_chorus")
-                        .eq("song_id", songId)
-                        .order("line_index");
-                      if (fresh) setLiveLines(fresh as Line[]);
-                    } catch (e) {
-                      console.error(e);
-                      toast.error("Re-sync failed. Please try again.");
-                      setSyncStatus("static");
-                    } finally {
-                      setResyncing(false);
-                    }
+                    const ok = await runResync({ silent: false });
+                    if (!ok) setSyncStatus("static");
                   }}
                   className="h-7 text-xs"
                 >
