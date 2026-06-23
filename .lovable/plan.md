@@ -1,89 +1,53 @@
-# Expand synced lyrics coverage
 
-Right now we only check lrclib.net for synced lyrics. When it 404s the song falls back to plain text + AI translation, which trips the "Static lyrics — sync unavailable" UI. We'll add two more community LRC sources and a Gemini-based forced-alignment pass, run all of them in parallel, and pick the first source that returns real per-line timestamps.
+## Goal
+Make every stage of the song-generation pipeline run **fully in parallel**, and guarantee at least **3 concurrent sources** for each of the three critical data types: lyrics text, translation, and timestamp sync.
 
-## Strategy
+## Current state (audit of `supabase/functions/generate-lyrics/index.ts`)
 
-Race four sync providers concurrently in `generate-lyrics`. First one that returns synced lines wins; the rest are dropped.
-
-```text
-                  ┌─ lrclib.net (current)
-                  │
-race(Promise.any) ┼─ NetEase Cloud Music (search → lyric API)
-                  │
-                  ├─ Megalobiz (HTML scrape → .lrc download)
-                  │
-                  └─ Gemini forced alignment (audio URL → timed transcript → line align)
-```
-
-If all four fail to produce synced timestamps, we keep today's behavior: use whichever plain-text source returned (lrclib/Genius/Firecrawl) and render Static Mode.
+| Stage | Sources today | Concurrency today | Issue |
+|---|---|---|---|
+| Genius song lookup | 4 query variants (cleaned / simplified / artist-title split / +channel) | **Sequential** — each only fires if the previous returned `null` | Slow worst case (4 round-trips) |
+| Lyrics text | lrclib, NetEase, Megalobiz, Genius, Firecrawl web fallback | First 4 parallel; Firecrawl only runs **after** all 4 miss | Firecrawl not in the race |
+| Sync (timestamps) | lrclib-synced, NetEase-synced, Megalobiz-synced, Whisper alignment | First 3 parallel; Whisper only runs **after** the race if none had timestamps | Whisper not in the race; only 3 parallel synced providers |
+| Translation | `google/gemini-2.5-flash-lite` + one retry on same model | **Single source** | Below the 3-source minimum |
 
 ## Changes
 
-### 1. `supabase/functions/generate-lyrics/index.ts`
+### 1. Parallel Genius search (`searchGenius`)
+Build all candidate queries up-front and `Promise.any` over them. Cleaned + simplified + artist/title split + `+channel` all fire at once; first non-null wins. Compilation/awards rejection logic stays. Falls back to `null` (continue without Genius) if all reject.
 
-Add three new fetchers next to `fetchLrclibLyrics`, each returning the existing `{ plain, synced: SyncedLine[] }` shape so the rest of the pipeline doesn't change.
+### 2. Lyrics — Firecrawl joins the parallel race
+Move `fetchWebFallbackLyrics` into the same `Promise.all` batch as lrclib/NetEase/Megalobiz/Genius. Selection priority unchanged: prefer any provider that returned real timestamps, then prefer Genius/lrclib plain text, then any plain text, then Firecrawl as last-priority hit. Net effect: 5 lyric sources always running concurrently (vs 4 + sequential fallback), shaving 3–6 s when Genius/lrclib both miss.
 
-**a. NetEase Cloud Music** (free, no key)
-- `GET https://music.163.com/api/search/get?s=<title artist>&type=1&limit=5` → pick best song id
-- `GET https://music.163.com/api/song/lyric?id=<id>&lv=1&tv=-1` → returns `lrc.lyric` in standard LRC format
-- Parse with existing `parseSyncedLrc`. Strong catalog for Latin/Spanish pop.
+### 3. Sync — add a 4th provider and parallelize Whisper
+- Add a new LRC provider: **`fetchSyairLrc(title, artist)`** in `supabase/functions/_shared/lyrics-sync.ts` (Syair / lyricsify-style community LRC site, free, no key). Same `{ plain, synced }` shape as the existing three.
+- Kick off **Whisper alignment** at the **same time** as the LRC providers, but make it depend on the first piece of plain text that arrives:
+  - Start the LRC race.
+  - As soon as any provider resolves with usable plain text, `await` Whisper using that plain text + `youtube_id`.
+  - When the race resolves, if no provider gave timestamps but Whisper did, use Whisper's timestamps with the chosen plain text.
+- Result: 4 LRC providers (lrclib, NetEase, Megalobiz, Syair) racing concurrently + Whisper running in parallel = **5 sync sources**, all guaranteed ≥3 concurrent.
 
-**b. Megalobiz** (free, no key)
-- `GET https://www.megalobiz.com/search/all?qry=<title artist>&display=song` → scrape first `<a class="entity_name" href="/lrc/maker/...">`
-- `GET https://www.megalobiz.com/lrc/maker/<slug>` → extract `<div ... id="lrc_<id>_lyrics">…</div>` LRC block
-- Parse with `parseSyncedLrc`.
+### 4. Translation — race 3 AI models in parallel
+Refactor the AI-translation block (`Phase 2` in `generateLyricsInBackground`) to fire **three model requests concurrently** through the Lovable AI gateway, all using the same `save_song` tool schema:
+- `google/gemini-2.5-flash-lite` (current, fastest)
+- `google/gemini-2.5-flash` (higher quality fallback)
+- `openai/gpt-5-mini` (independent provider for robustness)
 
-**c. Gemini forced alignment** (paid, Lovable AI credits)
-- Only fires when we already have plain lyrics from lrclib/Genius/Firecrawl but no synced timestamps from a–b.
-- Single call to `google/gemini-2.5-pro` via `https://ai.gateway.lovable.dev/v1/chat/completions` with:
-  - YouTube URL as `fileData` part (`fileUri: https://www.youtube.com/watch?v=<id>`, `mimeType: video/youtube`). Gemini accepts public YouTube URLs natively.
-  - The plain lyrics in the prompt.
-  - A `force_align` tool schema requiring `[{ index, start_seconds }]` for every input line, monotonically increasing, `start_seconds >= 0`.
-- Validate the tool output: must cover ≥90% of lines and be sorted; otherwise discard.
+Use `Promise.any` with a per-request validator: a result only "wins" if it returns a valid tool call AND `lines.length >= ceil(inputLineCount * 0.8)`. First valid response wins; the others are discarded. If all three reject, mark the song failed (current behavior). Retry-on-empty-tool-call logic is removed (the race already provides redundancy).
 
-**d. Race them**
-Replace the current `Promise.all([...lrclibPromises, geniusPromise])` block (lines ~594–607) with:
+### 5. Keep the existing safeguards
+- Optimistic stub-insert + `EdgeRuntime.waitUntil` background pipeline stays unchanged.
+- Realtime placeholder-insert → streaming UPDATE flow stays unchanged.
+- Per-request `console.log` lines preserve the existing `sync providers: lrclib=… netease=…` style observability, extended to cover the new Syair + Whisper + 3 translation models.
 
-```ts
-const syncProviders = [
-  ...lrclibPromises,            // already returns { src:'lrclib', text, synced }
-  fetchNeteaseLrc(cleanTitle, cleanArtist),
-  fetchMegalobizLrc(cleanTitle, cleanArtist),
-];
-const results = await Promise.all(syncProviders);
-const synced = results.find((r) => r?.synced.length > 0);
-const plain  = synced ?? results.find((r) => r?.text) ?? (await geniusPromise) ?? null;
+## Technical notes
 
-if (plain && !synced) {
-  // Last-chance forced alignment against the YouTube audio
-  const aligned = await alignWithGemini(youtube_id, plain.text, LOVABLE_API_KEY);
-  if (aligned) { rawLyrics = plain.text; syncedTimestamps = aligned; lyricsSource = "gemini_aligned"; }
-}
-```
+- All three new parallel batches use `Promise.allSettled` + manual "first acceptable" selection (not `Promise.any`) where we need to know which sources actually responded vs errored, so per-provider failures never reject the whole race.
+- Whisper still respects its own 45 s audio-fetch timeout; if it loses the race against the LRC providers it's simply ignored.
+- `openai/gpt-5-mini` and `google/gemini-2.5-flash` already work through the Lovable AI gateway with the same tool-call schema — no new secrets needed.
+- No DB schema changes, no client changes, no new env vars.
 
-Everything downstream (`syncedTimestamps`, `is_synced`, `start_seconds`/`end_seconds` capping) stays as-is.
-
-**e. Logging**
-Log each provider's outcome (`lrclib=hit/miss`, `netease=hit/miss`, `megalobiz=hit/miss`, `gemini_align=hit/miss/skipped`) so we can see coverage in `edge_function_logs`.
-
-### 2. Frontend
-No changes. The existing `is_synced`/`effectiveTimings`/intro pill logic already handles whatever timestamps land in `lyric_lines`.
-
-### 3. Database
-No schema changes. `songs.is_synced` already exists.
-
-## Out of scope
-- Musixmatch (user declined; needs paid key anyway).
-- Re-running alignment for already-saved unsynced songs (can add a backfill button later).
-- Word-level karaoke highlighting.
-- Translation changes.
-
-## Verification
-1. Pick the user's failing track from `/song/2e605231-…` and re-trigger generation — confirm `lyrics_source` in logs becomes `netease`/`megalobiz`/`lrclib_synced`/`gemini_aligned` instead of `genius`/`web_fallback`.
-2. Open the song page → the "Static lyrics — sync unavailable" pill is gone, intro pill shows while `t < firstStart`, lines highlight on beat with gaps during instrumentals.
-3. Spot-check 3 more "Spotify-synced but lrclib-missing" tracks — at least one of NetEase/Megalobiz/Gemini should hit each.
-4. `edge_function_logs`: zero new 5xx, Gemini alignment only fires when the first three miss.
-
-## Cost note
-Gemini 2.5 Pro on a 3-minute YouTube video is roughly the same credit cost as a normal translation call. It only runs when lrclib, NetEase, and Megalobiz all miss, so most songs cost nothing extra.
+## Files touched
+- `supabase/functions/generate-lyrics/index.ts` — Genius parallel search, Firecrawl in race, Whisper in race, 3-model translation race.
+- `supabase/functions/_shared/lyrics-sync.ts` — add `fetchSyairLrc` provider; export unchanged.
+- `supabase/functions/resync-lyrics/index.ts` — pick up the new `fetchSyairLrc` in its existing parallel provider list (keeps resync at 4 LRC providers + Whisper too).
