@@ -452,13 +452,51 @@ export const SectionedSongPlayer = ({
             )}
 
             {active && !isSynced && (
-              <div className="flex justify-center mb-1">
+              <div className="flex flex-col items-center gap-2 mb-1">
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full border border-[#2C2A29]/15 bg-[#FBF9F6] px-3 py-1 text-xs font-medium text-[#2C2A29]/60"
                   role="status"
                 >
                   Static lyrics — sync unavailable for this track
                 </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={resyncing}
+                  onClick={async () => {
+                    setResyncing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("resync-lyrics", {
+                        body: { song_id: songId },
+                      });
+                      if (error) throw error;
+                      if (!data?.success) {
+                        toast.info(data?.message ?? "Still no synced lyrics found. Try again later.");
+                        return;
+                      }
+                      toast.success(`Synced via ${data.source} (${data.updated_lines} lines)`);
+                      // Refresh lyric_lines so highlighting kicks in
+                      const { data: fresh } = await supabase
+                        .from("lyric_lines")
+                        .select("id, line_index, spanish_text, pronunciation, english_translation, start_seconds, end_seconds, is_chorus")
+                        .eq("song_id", songId)
+                        .order("line_index");
+                      if (fresh) setLiveLines(fresh as Line[]);
+                    } catch (e) {
+                      console.error(e);
+                      toast.error("Re-sync failed. Please try again.");
+                    } finally {
+                      setResyncing(false);
+                    }
+                  }}
+                  className="h-7 text-xs"
+                >
+                  {resyncing ? (
+                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Re-syncing…</>
+                  ) : (
+                    <><Sparkles className="h-3 w-3 mr-1.5" />Re-sync this song</>
+                  )}
+                </Button>
               </div>
             )}
 
