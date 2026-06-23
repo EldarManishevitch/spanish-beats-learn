@@ -313,6 +313,7 @@ export type Database = {
           genre: string
           id: string
           is_catalog_default: boolean
+          is_synced: boolean
           title: string
           youtube_id: string
         }
@@ -324,6 +325,7 @@ export type Database = {
           genre: string
           id?: string
           is_catalog_default?: boolean
+          is_synced?: boolean
           title: string
           youtube_id: string
         }
@@ -335,6 +337,7 @@ export type Database = {
           genre?: string
           id?: string
           is_catalog_default?: boolean
+          is_synced?: boolean
           title?: string
           youtube_id?: string
         }
