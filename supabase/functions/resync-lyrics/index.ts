@@ -31,6 +31,26 @@ function sanitizeArtist(a: string): string {
     .trim();
 }
 
+// Per-user-per-song rate limit (in-memory, best-effort) to prevent abuse of
+// the expensive Whisper alignment call and unconstrained writes to shared
+// lyric content. One resync per song per user per 24h.
+const RESYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const recentResyncs = new Map<string, number>();
+function rateLimitHit(userId: string, songId: string): boolean {
+  const key = `${userId}:${songId}`;
+  const now = Date.now();
+  const last = recentResyncs.get(key);
+  if (last && now - last < RESYNC_COOLDOWN_MS) return true;
+  recentResyncs.set(key, now);
+  // opportunistic cleanup
+  if (recentResyncs.size > 5000) {
+    for (const [k, t] of recentResyncs) {
+      if (now - t > RESYNC_COOLDOWN_MS) recentResyncs.delete(k);
+    }
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   try {
