@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -151,6 +151,46 @@ const SongPage = () => {
   const headerReady = Boolean(song);
   const flaggedSet = new Set(flags.map((f) => f.word));
 
+  // Premium progress: derived from realtime signals so the bar reflects the
+  // background pipeline without blocking the UI.
+  //  • 10%  — initial (page mounted, awaiting metadata)
+  //  • 30%  — song row landed (YouTube + Genius search done)
+  //  • 30→75% — lines streaming in & being translated
+  //  • 90%  — every line has an English translation
+  //  • 100% — generation considered idle (fades out)
+  const { progress, statusMessage } = useMemo(() => {
+    if (!isGenerating) {
+      return { progress: 100, statusMessage: "Ready" };
+    }
+    if (!song?.title) {
+      return { progress: 10, statusMessage: "Searching YouTube & Genius..." };
+    }
+    const total = lines.length;
+    const translated = lines.filter((l) => l.english_translation).length;
+    if (total === 0) {
+      return { progress: 30, statusMessage: "Fetching lyrics..." };
+    }
+    const ratio = translated / total;
+    if (ratio < 1) {
+      return {
+        progress: Math.round(30 + ratio * 45),
+        statusMessage: "AI Generating English Translation & Phonetics...",
+      };
+    }
+    return { progress: 90, statusMessage: "Saving to Database & Rendering..." };
+  }, [isGenerating, song?.title, lines]);
+
+  // Keep the bar mounted briefly after completion so the fade-out animation
+  // can finish before we unmount.
+  const [showProgress, setShowProgress] = useState(true);
+  useEffect(() => {
+    if (progress === 100) {
+      const t = window.setTimeout(() => setShowProgress(false), 600);
+      return () => window.clearTimeout(t);
+    }
+    setShowProgress(true);
+  }, [progress]);
+
   return (
     <AppLayout>
       <Helmet>
@@ -176,25 +216,6 @@ const SongPage = () => {
         )}
       </Helmet>
 
-      {/* Top progress bar — purely visual, never blocks interaction (pointer-events-none). */}
-      <div
-        aria-hidden={!isGenerating}
-        className={`fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-primary to-transparent animate-[slide-in-right_1.4s_ease-in-out_infinite]" />
-      </div>
-
-      {/* Floating status pill — sits above content but doesn't intercept clicks. */}
-      <div
-        role="status"
-        aria-live="polite"
-        className={`fixed bottom-6 right-6 z-50 pointer-events-none transition-opacity duration-500 ${isGenerating ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="glass flex items-center gap-2 rounded-full px-4 py-2 shadow-neon-pink text-sm text-foreground">
-          <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
-          <span>🪄 AI is crafting your song…</span>
-        </div>
-      </div>
 
       <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back
@@ -224,6 +245,26 @@ const SongPage = () => {
           )}
         </div>
       </header>
+
+      {showProgress && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`w-full flex flex-col gap-1.5 mb-6 mt-2 transition-opacity duration-500 ${progress === 100 ? "opacity-0 animate-fade-out" : "opacity-100"}`}
+        >
+          <div className="flex justify-between text-sm font-medium text-[#D96B43] mb-1">
+            <span>{statusMessage}</span>
+            <span className="font-mono tabular-nums">{progress}%</span>
+          </div>
+          <div className="w-full h-2.5 bg-[#2C2A29]/10 rounded-full overflow-hidden border border-[#2C2A29]/20 shadow-inner">
+            <div
+              className="bg-gradient-to-r from-[#D96B43] to-[#2C2A29] h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === "vocab") loadVocab(); }} className="space-y-6">
         <TabsList className="glass">
