@@ -356,6 +356,97 @@ async function fetchLrclibLyrics(
   }
 }
 
+// --- NetEase Cloud Music: free, no key. Strong Latin/pop catalog. -----------
+async function fetchNeteaseLrc(
+  title: string,
+  artist: string,
+): Promise<{ plain: string; synced: SyncedLine[] } | null> {
+  if (!title) return null;
+  const query = `${title} ${artist}`.trim();
+  try {
+    const searchUrl =
+      `https://music.163.com/api/search/get?s=${encodeURIComponent(query)}&type=1&limit=5`;
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Referer: "https://music.163.com/",
+      Cookie: "appver=2.0.2",
+    };
+    const sRes = await fetch(searchUrl, { headers });
+    if (!sRes.ok) {
+      console.warn("netease search failed:", sRes.status);
+      return null;
+    }
+    const sData = await sRes.json();
+    const songs: any[] = sData?.result?.songs ?? [];
+    if (!songs.length) return null;
+    // Prefer a hit whose artist roughly matches.
+    const wantArtist = artist.toLowerCase();
+    const pick = songs.find((s) =>
+      Array.isArray(s.artists) &&
+      s.artists.some((a: any) => wantArtist && String(a.name).toLowerCase().includes(wantArtist.split(/[, ]/)[0] ?? ""))
+    ) ?? songs[0];
+    if (!pick?.id) return null;
+
+    const lyricUrl = `https://music.163.com/api/song/lyric?id=${pick.id}&lv=1&tv=-1`;
+    const lRes = await fetch(lyricUrl, { headers });
+    if (!lRes.ok) return null;
+    const lData = await lRes.json();
+    const lrc: string = lData?.lrc?.lyric ?? "";
+    if (!lrc || lrc.length < 30) return null;
+    const synced = parseSyncedLrc(lrc);
+    if (synced.length < 4) return null;
+    const plain = synced.map((s) => s.text).join("\n");
+    if (plain.trim().length < 50) return null;
+    return { plain, synced };
+  } catch (error) {
+    console.error("netease fetch failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+// --- Megalobiz: community LRC site, free, no key. ---------------------------
+async function fetchMegalobizLrc(
+  title: string,
+  artist: string,
+): Promise<{ plain: string; synced: SyncedLine[] } | null> {
+  if (!title) return null;
+  try {
+    const query = `${title} ${artist}`.trim();
+    const searchUrl = `https://www.megalobiz.com/search/all?qry=${encodeURIComponent(query)}&display=song`;
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml",
+    };
+    const sRes = await fetch(searchUrl, { headers });
+    if (!sRes.ok) {
+      console.warn("megalobiz search failed:", sRes.status);
+      return null;
+    }
+    const html = await sRes.text();
+    const linkMatch = html.match(/<a[^>]+class="entity_name"[^>]+href="(\/lrc\/maker\/[^"]+)"/i);
+    if (!linkMatch) return null;
+    const lrcPageUrl = `https://www.megalobiz.com${linkMatch[1]}`;
+    const pRes = await fetch(lrcPageUrl, { headers });
+    if (!pRes.ok) return null;
+    const pHtml = await pRes.text();
+    // The LRC body lives in a div whose id starts with lrc_<digits>_
+    const bodyMatch = pHtml.match(/<div[^>]+id="lrc_\d+_[^"]+"[^>]*>([\s\S]*?)<\/div>/i);
+    if (!bodyMatch) return null;
+    const lrcText = decodeAndStrip(bodyMatch[1]);
+    if (lrcText.length < 30) return null;
+    const synced = parseSyncedLrc(lrcText);
+    if (synced.length < 4) return null;
+    const plain = synced.map((s) => s.text).join("\n");
+    if (plain.trim().length < 50) return null;
+    return { plain, synced };
+  } catch (error) {
+    console.error("megalobiz fetch failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
 async function fetchGeniusLyrics(songUrl: string): Promise<string | null> {
   try {
     const response = await fetch(songUrl, {
