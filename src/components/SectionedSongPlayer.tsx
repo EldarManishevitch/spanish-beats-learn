@@ -99,6 +99,38 @@ export const SectionedSongPlayer = ({
     return sorted.length ? { id: "full", label: "Full Song", lines: sorted } : null;
   }, [liveLines]);
 
+  // Detect songs whose lyric_lines were saved with no real timestamps (all
+  // start/end = 0). When that happens AND we know the YouTube video duration,
+  // synthesize a per-line timing map by spreading the song uniformly across
+  // the audio. It's not perfect, but it keeps the highlighter functional
+  // instead of failing silently on the entire backlog of zero-timestamp rows.
+  const needsFallbackTiming = useMemo(() => {
+    if (liveLines.length === 0) return false;
+    return liveLines.every((l) => (l.start_seconds ?? 0) === 0 && (l.end_seconds ?? 0) === 0);
+  }, [liveLines]);
+
+  const fallbackTimings = useMemo<Map<string, { start: number; end: number }>>(() => {
+    const map = new Map<string, { start: number; end: number }>();
+    if (!needsFallbackTiming || videoDuration <= 0 || liveLines.length === 0) return map;
+    // Reserve a tiny lead-in so the first line isn't already "active" at t=0.
+    const leadIn = Math.min(2, videoDuration * 0.02);
+    const usable = Math.max(1, videoDuration - leadIn);
+    const per = usable / liveLines.length;
+    const sorted = [...liveLines].sort((a, b) => a.line_index - b.line_index);
+    sorted.forEach((line, i) => {
+      const start = leadIn + i * per;
+      map.set(line.id, { start, end: start + per });
+    });
+    if (typeof window !== "undefined" && import.meta.env.DEV) {
+      console.warn(
+        `[lyrics-sync] No DB timestamps for song ${songId}. Using duration-based fallback (${liveLines.length} lines / ${videoDuration.toFixed(1)}s).`,
+      );
+    }
+    return map;
+  }, [needsFallbackTiming, videoDuration, liveLines, songId]);
+
+
+
   // Sections are "ready" once at least one line is tagged is_chorus=true.
   // Until then we still render Full Song immediately and show a neon indicator
   // where the chorus / verse tabs will appear.
