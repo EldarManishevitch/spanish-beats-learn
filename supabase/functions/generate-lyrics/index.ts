@@ -593,6 +593,55 @@ Deno.serve(async (req) => {
       return jsonResponse({ song_id: existing.id, existed: true, lines: cachedLines ?? [] });
     }
 
+    // ===== Optimistic stub insert: create the song row IMMEDIATELY so the
+    // client can navigate to /song/:id while the heavy work runs in the
+    // background via EdgeRuntime.waitUntil. The row is filled in / updated
+    // as lyrics arrive (realtime broadcasts the changes). =====
+    const cleanedTitleEarly = cleanYoutubeTitle(title);
+    const ytSplitForStub = splitTitleArtist(cleanedTitleEarly);
+    const stubArtist = ytSplitForStub?.artist || (channel ? String(channel).replace(/\s*-?\s*Topic\s*$/i, "").trim() : "") || "Unknown";
+    const stubTitle = ytSplitForStub?.title || cleanedTitleEarly || title;
+
+    const { data: stubSong, error: stubError } = await supabase
+      .from("songs")
+      .insert({
+        title: stubTitle,
+        artist: stubArtist,
+        genre: "pop latino",
+        difficulty: "intermediate",
+        youtube_id,
+        album_art_url: safeThumb,
+        is_synced: false,
+      })
+      .select("id")
+      .single();
+
+    if (stubError || !stubSong) {
+      console.error("Stub song insert failed:", stubError);
+      return jsonResponse({ error: "Failed to create song" }, 500);
+    }
+
+    const songId = stubSong.id;
+
+    // Kick off background work and respond immediately with the song id.
+    // EdgeRuntime.waitUntil keeps the function alive past the response.
+    // @ts-ignore — EdgeRuntime is provided by the Supabase Edge runtime.
+    EdgeRuntime.waitUntil(
+      generateLyricsInBackground({
+        supabase,
+        songId,
+        youtube_id,
+        cleanedTitle: cleanedTitleEarly,
+        channel: typeof channel === "string" ? channel : "",
+        GENIUS_TOKEN,
+        LOVABLE_API_KEY,
+      }).catch((err) => {
+        console.error("Background generation crashed:", err instanceof Error ? err.message : err);
+      }),
+    );
+
+    return jsonResponse({ song_id: songId, pending: true, existed: false, lines: [] });
+
     const cleanedTitle = cleanYoutubeTitle(title);
     let geniusHit: { title: string; artist: string; url: string } | null = null;
 
