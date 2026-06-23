@@ -19,27 +19,6 @@ type Line = { id: string; line_index: number; spanish_text: string; pronunciatio
 type Vocab = { word: string; hebrew: string; is_slang: boolean };
 type Flag = { word: string; miss_count: number };
 
-const SongSkeleton = () => (
-  <AppLayout>
-    <div className="mb-4"><Skeleton className="h-5 w-16 bg-primary/10" /></div>
-    <header className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-6">
-      <Skeleton className="h-24 w-24 rounded-xl bg-primary/10" />
-      <div className="space-y-2">
-        <Skeleton className="h-5 w-20 bg-primary/10" />
-        <Skeleton className="h-9 w-64 bg-primary/10" />
-        <Skeleton className="h-5 w-40 bg-primary/10" />
-      </div>
-    </header>
-    <Skeleton className="h-10 w-72 mb-6 bg-primary/10" />
-    <Skeleton className="aspect-video w-full rounded-xl mb-4 bg-primary/10" />
-    <div className="space-y-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-16 w-full rounded-lg bg-primary/10" />
-      ))}
-    </div>
-  </AppLayout>
-);
-
 type QuizSection = "chorus" | "verse_1" | "verse_2" | "full";
 
 const SongPage = () => {
@@ -79,8 +58,6 @@ const SongPage = () => {
       });
     }
     loadVocab();
-    // Log this song view to the per-user search history so the Dashboard
-    // "Your Search History" shelf can surface recently opened tracks.
     if (user && id) {
       supabase
         .from("user_search_history")
@@ -92,42 +69,117 @@ const SongPage = () => {
     }
   }, [id, user]);
 
-  // Streak is intentionally NOT updated here. It is only touched on quiz completion.
+  // Realtime: keep the song row + lyric lines live as the background pipeline
+  // writes. INSERT appends a new Spanish line (translation rendered as skeleton);
+  // UPDATE swaps the skeleton for the real translation; song UPDATEs refresh
+  // title/artist/genre/sync status without a page refresh.
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`song-page-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "songs", filter: `id=eq.${id}` },
+        (payload) => {
+          const next = payload.new as Song | null;
+          if (next?.id) setSong((prev) => ({ ...(prev ?? next), ...next }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lyric_lines", filter: `song_id=eq.${id}` },
+        (payload) => {
+          const row = payload.new as Line;
+          setLines((prev) => {
+            if (prev.some((l) => l.id === row.id)) return prev;
+            return [...prev, row].sort((a, b) => a.line_index - b.line_index);
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "lyric_lines", filter: `song_id=eq.${id}` },
+        (payload) => {
+          const row = payload.new as Line;
+          setLines((prev) => prev.map((l) => (l.id === row.id ? { ...l, ...row } : l)));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "lyric_lines", filter: `song_id=eq.${id}` },
+        (payload) => {
+          const row = payload.old as { id?: string };
+          if (row?.id) setLines((prev) => prev.filter((l) => l.id !== row.id));
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
 
-  if (!song) return <SongSkeleton />;
-
+  // Progressive render: as soon as we have an :id, show the page shell. Header
+  // fills in when song data lands; player mounts when youtube_id is known;
+  // lyrics container is always present (lines stream in via realtime).
+  const displaySong: Song = song ?? {
+    id: id ?? "",
+    title: "",
+    artist: "",
+    genre: "",
+    youtube_id: null,
+    album_art_url: null,
+  };
+  const headerReady = Boolean(song);
   const flaggedSet = new Set(flags.map((f) => f.word));
 
   return (
     <AppLayout>
       <Helmet>
-        <title>{`${song.title} by ${song.artist} — Lyrics & translation | Ritmo`}</title>
-        <meta name="description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}. Learn Spanish while singing along.`} />
-        <link rel="canonical" href={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
-        <meta property="og:title" content={`${song.title} — ${song.artist}`} />
-        <meta property="og:description" content={`Spanish lyrics, English translation and pronunciation for ${song.title} by ${song.artist}.`} />
-        <meta property="og:url" content={`https://spanish-beats-learn.lovable.app/song/${song.id}`} />
-        <meta property="og:type" content="music.song" />
-        {song.album_art_url && <meta property="og:image" content={song.album_art_url} />}
-        <script type="application/ld+json">{JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "MusicComposition",
-          name: song.title,
-          composer: song.artist,
-          inLanguage: "es",
-          description: `Spanish lyrics with English translation and pronunciation for ${song.title} by ${song.artist}.`,
-        })}</script>
+        <title>{headerReady ? `${displaySong.title} by ${displaySong.artist} — Lyrics & translation | Ritmo` : "Loading song — Ritmo"}</title>
+        {headerReady && (
+          <>
+            <meta name="description" content={`Spanish lyrics, English translation and pronunciation for ${displaySong.title} by ${displaySong.artist}. Learn Spanish while singing along.`} />
+            <link rel="canonical" href={`https://spanish-beats-learn.lovable.app/song/${displaySong.id}`} />
+            <meta property="og:title" content={`${displaySong.title} — ${displaySong.artist}`} />
+            <meta property="og:description" content={`Spanish lyrics, English translation and pronunciation for ${displaySong.title} by ${displaySong.artist}.`} />
+            <meta property="og:url" content={`https://spanish-beats-learn.lovable.app/song/${displaySong.id}`} />
+            <meta property="og:type" content="music.song" />
+            {displaySong.album_art_url && <meta property="og:image" content={displaySong.album_art_url} />}
+            <script type="application/ld+json">{JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "MusicComposition",
+              name: displaySong.title,
+              composer: displaySong.artist,
+              inLanguage: "es",
+              description: `Spanish lyrics with English translation and pronunciation for ${displaySong.title} by ${displaySong.artist}.`,
+            })}</script>
+          </>
+        )}
       </Helmet>
       <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back
       </Link>
 
       <header className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-6 animate-fade-in">
-        {song.album_art_url && <img src={song.album_art_url} alt={song.title} className="h-24 w-24 rounded-xl object-cover shadow-neon-pink" />}
-        <div>
-          <Badge className={song.genre === "reggaeton" ? "bg-primary text-primary-foreground mb-2" : "mb-2"} variant={song.genre === "bachata" ? "secondary" : "default"}>{song.genre}</Badge>
-          <h1 className="text-3xl md:text-4xl font-bold neon-text">{song.title}</h1>
-          <p className="text-lg text-muted-foreground">{song.artist}</p>
+        {displaySong.album_art_url ? (
+          <img src={displaySong.album_art_url} alt={displaySong.title || "Song artwork"} className="h-24 w-24 rounded-xl object-cover shadow-neon-pink" />
+        ) : (
+          <Skeleton className="h-24 w-24 rounded-xl bg-primary/10" />
+        )}
+        <div className="space-y-2">
+          {displaySong.genre ? (
+            <Badge className={displaySong.genre === "reggaeton" ? "bg-primary text-primary-foreground mb-2" : "mb-2"} variant={displaySong.genre === "bachata" ? "secondary" : "default"}>{displaySong.genre}</Badge>
+          ) : (
+            <Skeleton className="h-5 w-20 bg-primary/10" />
+          )}
+          {displaySong.title ? (
+            <h1 className="text-3xl md:text-4xl font-bold neon-text transition-opacity duration-300">{displaySong.title}</h1>
+          ) : (
+            <Skeleton className="h-9 w-64 bg-primary/10" />
+          )}
+          {displaySong.artist ? (
+            <p className="text-lg text-muted-foreground transition-opacity duration-300">{displaySong.artist}</p>
+          ) : (
+            <Skeleton className="h-5 w-40 bg-primary/10" />
+          )}
         </div>
       </header>
 
@@ -147,11 +199,11 @@ const SongPage = () => {
         <TabsContent value="lyrics">
           <h2 className="sr-only">Lyrics with translation</h2>
           <SectionedSongPlayer
-            youtubeId={song.youtube_id}
-            songTitle={song.title}
-            songArtist={song.artist}
+            youtubeId={displaySong.youtube_id}
+            songTitle={displaySong.title}
+            songArtist={displaySong.artist}
             lines={lines}
-            songId={song.id}
+            songId={displaySong.id}
             onPracticeQuiz={(sectionId) => { setQuizSection(sectionId); setTab("quiz"); }}
           />
         </TabsContent>
@@ -197,7 +249,7 @@ const SongPage = () => {
 
         <TabsContent value="quiz">
           <h2 className="sr-only">Section quiz</h2>
-          <ChorusQuiz songId={song.id} lines={lines} songTitle={song.title} songArtist={song.artist} sectionId={quizSection} />
+          <ChorusQuiz songId={displaySong.id} lines={lines} songTitle={displaySong.title} songArtist={displaySong.artist} sectionId={quizSection} />
         </TabsContent>
 
       </Tabs>

@@ -593,7 +593,94 @@ Deno.serve(async (req) => {
       return jsonResponse({ song_id: existing.id, existed: true, lines: cachedLines ?? [] });
     }
 
-    const cleanedTitle = cleanYoutubeTitle(title);
+    // ===== Optimistic stub insert: create the song row IMMEDIATELY so the
+    // client can navigate to /song/:id while the heavy work runs in the
+    // background via EdgeRuntime.waitUntil. The row is filled in / updated
+    // as lyrics arrive (realtime broadcasts the changes). =====
+    const cleanedTitleEarly = cleanYoutubeTitle(title);
+    const ytSplitForStub = splitTitleArtist(cleanedTitleEarly);
+    const stubArtist = ytSplitForStub?.artist || (channel ? String(channel).replace(/\s*-?\s*Topic\s*$/i, "").trim() : "") || "Unknown";
+    const stubTitle = ytSplitForStub?.title || cleanedTitleEarly || title;
+
+    const { data: stubSong, error: stubError } = await supabase
+      .from("songs")
+      .insert({
+        title: stubTitle,
+        artist: stubArtist,
+        genre: "pop latino",
+        difficulty: "intermediate",
+        youtube_id,
+        album_art_url: safeThumb,
+        is_synced: false,
+      })
+      .select("id")
+      .single();
+
+    if (stubError || !stubSong) {
+      console.error("Stub song insert failed:", stubError);
+      return jsonResponse({ error: "Failed to create song" }, 500);
+    }
+
+    const songId = stubSong.id;
+
+    // Kick off background work and respond immediately with the song id.
+    // EdgeRuntime.waitUntil keeps the function alive past the response.
+    // @ts-ignore — EdgeRuntime is provided by the Supabase Edge runtime.
+    EdgeRuntime.waitUntil(
+      generateLyricsInBackground({
+        supabase,
+        songId,
+        youtube_id,
+        cleanedTitle: cleanedTitleEarly,
+        channel: typeof channel === "string" ? channel : "",
+        GENIUS_TOKEN,
+        LOVABLE_API_KEY,
+      }).catch((err) => {
+        console.error("Background generation crashed:", err instanceof Error ? err.message : err);
+      }),
+    );
+
+    return jsonResponse({ song_id: songId, pending: true, existed: false, lines: [] });
+  } catch (error) {
+    console.error("Unexpected generate-lyrics error:", error instanceof Error ? error.message : error);
+    return jsonResponse({ error: "Internal server error" }, 500);
+  }
+});
+
+// ===== Background pipeline. All work after the optimistic stub-song
+// response lives here. The function inserts placeholder lyric_lines
+// (spanish_text + timestamps, english_translation = null) as soon as raw
+// lyrics are scraped, then UPDATEs each row with the AI translation. The
+// songs row is UPDATEd in place. Realtime broadcasts every change. =====
+type BgArgs = {
+  supabase: ReturnType<typeof createClient>;
+  songId: string;
+  youtube_id: string;
+  cleanedTitle: string;
+  channel: string;
+  GENIUS_TOKEN: string;
+  LOVABLE_API_KEY: string;
+};
+
+async function markSongFailed(
+  supabase: ReturnType<typeof createClient>,
+  songId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    // Stash failure reason in the artist column suffix is too hacky; just
+    // log. The frontend has its own timeout/error UX. We DO mark is_synced
+    // false so nothing claims sync. Future: dedicated status column.
+    console.error(`[song ${songId}] generation failed: ${reason}`);
+    await supabase.from("songs").update({ is_synced: false }).eq("id", songId);
+  } catch (e) {
+    console.error("markSongFailed update failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+async function generateLyricsInBackground(args: BgArgs): Promise<void> {
+  const { supabase, songId, youtube_id, cleanedTitle, channel, GENIUS_TOKEN, LOVABLE_API_KEY } = args;
+  try {
     let geniusHit: { title: string; artist: string; url: string } | null = null;
 
     try {
@@ -626,14 +713,12 @@ Deno.serve(async (req) => {
       }
     } catch (error) {
       console.error("Genius search failed for selected track:", error instanceof Error ? error.message : error);
-      return jsonResponse({ error: "Genius search failed. Please try another track." }, 502);
+      // Continue without Genius — lrclib/netease/megalobiz may still hit.
     }
 
     if (!geniusHit) {
       console.warn("Genius lookup failed — continuing with YouTube metadata only");
     } else {
-      // Reject Genius pages that are compilations / awards / monthly singles lists /
-      // "Various Artists" pages — these are not real songs.
       const COMPILATION_RE = /(awards?|nominees?|billboard|playlist|compilation|compilaci[oó]n|full album|[aá]lbum completo|mega ?mix|top \d+|best of|lo mejor de|sencillos del mes|monthly singles|hits of \d{4}|singles? of \d{4})/i;
       const COMPILATION_ARTIST_RE = /^(billboard|genius(\s+en\s+espa[nñ]ol)?|various artists|spotify|apple music|youtube)$/i;
       if (COMPILATION_RE.test(geniusHit.title) || COMPILATION_ARTIST_RE.test(geniusHit.artist.trim())) {
@@ -642,11 +727,8 @@ Deno.serve(async (req) => {
       }
     }
 
-
     let rawLyrics: string | null = null;
     let lyricsSource = "none";
-    // Synced LRC timestamps (seconds) aligned 1:1 with rawLyrics lines when
-    // present. lrclib is the only source that ships these reliably.
     let syncedTimestamps: number[] = [];
 
     const ytSplit = splitTitleArtist(cleanedTitle);
@@ -665,8 +747,6 @@ Deno.serve(async (req) => {
     }
 
     try {
-      // Fire all sync providers AND Genius scrape in parallel — first synced
-      // hit wins; otherwise first plain-text hit wins.
       const lrclibPromises = lrclibAttempts
         .filter((a) => a.title && a.artist)
         .map((attempt) =>
@@ -699,7 +779,6 @@ Deno.serve(async (req) => {
         geniusPromise,
       ]);
 
-      // Provider outcome log for coverage tracking
       const outcome = (src: string) =>
         parallelResults.some((r) => r?.src === src && r.synced.length > 0)
           ? "synced"
@@ -710,7 +789,6 @@ Deno.serve(async (req) => {
         `sync providers: lrclib=${outcome("lrclib")} netease=${outcome("netease")} megalobiz=${outcome("megalobiz")} genius=${outcome("genius")}`,
       );
 
-      // Prefer any provider with real synced timestamps, otherwise first valid result.
       const syncedHit = parallelResults.find((r) => r && r.synced.length > 0);
       const firstHit = syncedHit ?? parallelResults.find((r) => !!r) ?? null;
       if (firstHit) {
@@ -732,8 +810,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Best-effort 4th provider: Whisper forced alignment on YouTube audio.
-      // Only fires when we have plain lyrics but no synced timestamps yet.
       if (rawLyrics && rawLyrics.length >= 50 && syncedTimestamps.length === 0) {
         try {
           const { alignWithWhisper } = await import("../_shared/lyrics-sync.ts");
@@ -751,19 +827,71 @@ Deno.serve(async (req) => {
       }
     } catch (error) {
       console.error("Lyrics retrieval failed:", error instanceof Error ? error.message : error);
-      return jsonResponse({ error: "Lyrics retrieval failed. Please try another track." }, 502);
+      await markSongFailed(supabase, songId, "Lyrics retrieval failed");
+      return;
     }
 
     if (!rawLyrics || rawLyrics.length < 50) {
-      console.error("Could not retrieve lyrics from lrclib, Genius, or web fallback for:", cleanTitle, cleanArtist);
-      return jsonResponse({ error: "Could not retrieve lyrics for this song. Try another track." }, 404);
+      console.error("Could not retrieve lyrics for:", cleanTitle, cleanArtist);
+      await markSongFailed(supabase, songId, "No lyrics found");
+      return;
     }
 
-    const inputLineCount = countInputLyricLines(rawLyrics);
+    // ===== Phase 1: insert placeholder lyric_lines (spanish_text + timestamps,
+    // english_translation = null) so realtime subscribers see Spanish text
+    // appear immediately, with skeletons in the translation slot. =====
+    const cleanLines = rawLyrics
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !/^\[[^\]]+\]$/.test(l));
+    const placeholderRows = cleanLines.map((text, index) => {
+      const haveSync = syncedTimestamps.length > 0;
+      const srcIdx = haveSync
+        ? (cleanLines.length === 1
+            ? 0
+            : Math.min(
+                syncedTimestamps.length - 1,
+                Math.round((index * (syncedTimestamps.length - 1)) / Math.max(1, cleanLines.length - 1)),
+              ))
+        : 0;
+      const start = haveSync ? syncedTimestamps[srcIdx] : 0;
+      return {
+        song_id: songId,
+        line_index: index,
+        spanish_text: text,
+        hebrew_translation: null as string | null,
+        english_translation: null as string | null,
+        pronunciation: null as string | null,
+        start_seconds: start,
+        end_seconds: 0,
+        is_chorus: false,
+      };
+    });
+
+    if (placeholderRows.length === 0) {
+      await markSongFailed(supabase, songId, "Lyrics split produced no lines");
+      return;
+    }
+
+    const { error: phErr } = await supabase.from("lyric_lines").insert(placeholderRows);
+    if (phErr) {
+      console.error("Placeholder lyric_lines insert failed:", phErr);
+      await markSongFailed(supabase, songId, "Failed to save placeholder lyrics");
+      return;
+    }
+
+    // Flip is_synced now if we have real timestamps so the player switches
+    // to synced mode the moment lines appear.
+    if (syncedTimestamps.length > 0) {
+      await supabase.from("songs").update({ is_synced: true }).eq("id", songId);
+    }
+
+    const inputLineCount = cleanLines.length;
     console.log(
       `Sending lyrics to AI: ${rawLyrics.length} characters, ${inputLineCount} lyric lines, source=${lyricsSource}`,
     );
 
+    // ===== Phase 2: AI translation. =====
     let parsed: any;
     try {
       const userPrompt = `Song title: "${cleanTitle}"
@@ -782,21 +910,14 @@ ${rawLyrics}`;
       if (!aiResponse.ok) {
         const text = await aiResponse.text();
         console.error("AI translation error:", aiResponse.status, text);
-        // Return 200 with a structured error so `supabase.functions.invoke`
-        // doesn't throw on the client. The client surfaces `data.error`.
-        if (aiResponse.status === 429) {
-          return jsonResponse({ error: "Rate limit exceeded, try again soon.", code: "RATE_LIMITED", fallback: false }, 200);
-        }
-        if (aiResponse.status === 402) {
-          return jsonResponse({ error: "Lovable AI credits exhausted. Add credits in Settings → Plans & credits.", code: "CREDITS_EXHAUSTED", fallback: false }, 200);
-        }
-        return jsonResponse({ error: "AI translation failed", code: "AI_FAILED", fallback: true }, 200);
+        await markSongFailed(supabase, songId, `AI translation HTTP ${aiResponse.status}`);
+        return;
       }
 
       let aiData = await aiResponse.json();
       let toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall?.function?.arguments) {
-        console.warn("AI returned no tool call, retrying once:", JSON.stringify(aiData).slice(0, 1000));
+        console.warn("AI returned no tool call, retrying once");
         aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -804,57 +925,36 @@ ${rawLyrics}`;
         });
 
         if (!aiResponse.ok) {
-          const text = await aiResponse.text();
-          console.error("AI translation retry error:", aiResponse.status, text);
-          return jsonResponse({ error: "AI translation failed" }, 502);
+          console.error("AI translation retry error:", aiResponse.status, await aiResponse.text());
+          await markSongFailed(supabase, songId, "AI translation retry failed");
+          return;
         }
 
         aiData = await aiResponse.json();
         toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       }
-      if (!toolCall?.function?.arguments) throw new Error("AI did not return translated lyric lines");
+      if (!toolCall?.function?.arguments) {
+        await markSongFailed(supabase, songId, "AI did not return translated lyric lines");
+        return;
+      }
       parsed = JSON.parse(toolCall.function.arguments);
 
       const outputLineCount = Array.isArray(parsed.lines) ? parsed.lines.length : 0;
       if (inputLineCount >= 10 && outputLineCount < Math.ceil(inputLineCount * 0.8)) {
         console.error(
-          `Incomplete AI translation detected: input lines=${inputLineCount}, output lines=${outputLineCount}`,
+          `Incomplete AI translation: input=${inputLineCount}, output=${outputLineCount}`,
         );
-        return jsonResponse(
-          { error: "AI returned incomplete lyrics. Please try again.", input_lines: inputLineCount, output_lines: outputLineCount },
-          502,
-        );
+        await markSongFailed(supabase, songId, "AI returned incomplete lyrics");
+        return;
       }
     } catch (error) {
       console.error("AI translation logic failed:", error instanceof Error ? error.message : error);
-      return jsonResponse({ error: "AI translation failed. Please try again." }, 502);
+      await markSongFailed(supabase, songId, "AI translation crashed");
+      return;
     }
 
-    const { data: song, error: songError } = await supabase
-      .from("songs")
-      .insert({
-        title: parsed.title || cleanTitle,
-        artist: parsed.artist || cleanArtist,
-        genre: parsed.genre || "pop latino",
-        difficulty: parsed.difficulty || "intermediate",
-        youtube_id,
-        album_art_url: safeThumb,
-        is_synced: syncedTimestamps.length > 0,
-      })
-      .select("id")
-      .single();
-
-    if (songError) {
-      console.error("Song insert failed:", songError);
-      return jsonResponse({ error: "Failed to save song" }, 500);
-    }
-
-    // Map synced timestamps onto the AI-translated lines. When line counts
-    // match, do strict 1:1 mapping (avoids interpolation drift). When they
-    // differ, fall back to proportional mapping. Critically, end_seconds is
-    // capped to a realistic SUNG duration rather than nextStart, so silence
-    // between LRC lines (intros, mid-song instrumentals, outros) leaves no
-    // line falsely highlighted.
+    // ===== Phase 3: UPDATE placeholder rows with AI translations. =====
+    // Map synced timestamps onto AI lines (count may differ from cleanLines).
     const aiLines = (parsed.lines ?? []) as Array<any>;
     const n = aiLines.length;
     const m = syncedTimestamps.length;
@@ -870,7 +970,13 @@ ${rawLyrics}`;
         }
       }
     }
-    const rows = aiLines.map((line: any, index: number) => {
+
+    // UPDATE rows by (song_id, line_index). Stream them one-by-one with a
+    // tiny gap so realtime broadcasts a visible "translations filling in"
+    // wave rather than one big batch flash.
+    const STREAM_DELAY_MS = 25;
+    for (let index = 0; index < n; index++) {
+      const line = aiLines[index];
       const start = haveSync ? starts[index] : 0;
       const wordCount = String(line.spanish_text ?? "")
         .trim()
@@ -878,53 +984,61 @@ ${rawLyrics}`;
         .filter(Boolean).length || 1;
       const estimatedSung = Math.max(1.8, Math.min(7, wordCount * 0.45 + 0.8));
       const nextStart = haveSync && index < n - 1 ? starts[index + 1] : Infinity;
-      const end = haveSync
-        ? Math.min(nextStart, start + estimatedSung)
-        : 0;
-      return {
-        song_id: song.id,
-        line_index: index,
+      const end = haveSync ? Math.min(nextStart, start + estimatedSung) : 0;
+
+      const patch = {
         spanish_text: line.spanish_text,
-        hebrew_translation: null,
         english_translation: line.english_translation,
         pronunciation: line.pronunciation ?? null,
         start_seconds: start,
         end_seconds: end,
         is_chorus: Boolean(line.is_chorus),
       };
-    });
 
-
-    if (rows.length === 0) {
-      return jsonResponse(
-        { error: "We couldn't find real lyrics for this track. Try picking a different YouTube result (e.g. an official audio/lyric video)." },
-        404,
-      );
+      // If this index already has a placeholder row, UPDATE it; otherwise INSERT.
+      if (index < placeholderRows.length) {
+        const { error: upErr } = await supabase
+          .from("lyric_lines")
+          .update(patch)
+          .eq("song_id", songId)
+          .eq("line_index", index);
+        if (upErr) console.error(`update line ${index} failed:`, upErr.message);
+      } else {
+        const { error: insErr } = await supabase
+          .from("lyric_lines")
+          .insert({ song_id: songId, line_index: index, hebrew_translation: null, ...patch });
+        if (insErr) console.error(`insert line ${index} failed:`, insErr.message);
+      }
+      if (STREAM_DELAY_MS > 0) await new Promise((r) => setTimeout(r, STREAM_DELAY_MS));
     }
 
-    const { error: linesError } = await supabase.from("lyric_lines").insert(rows);
-    if (linesError) {
-      console.error("Lyric lines insert failed:", linesError);
-      return jsonResponse({ error: "Failed to save lyrics" }, 500);
+    // If AI returned FEWER lines than placeholders, delete the extras so
+    // the UI doesn't show un-translated junk at the end.
+    if (n < placeholderRows.length) {
+      const { error: delErr } = await supabase
+        .from("lyric_lines")
+        .delete()
+        .eq("song_id", songId)
+        .gte("line_index", n);
+      if (delErr) console.error("trim excess placeholder rows failed:", delErr.message);
     }
 
-    return jsonResponse({
-      song_id: song.id,
-      existed: false,
-      lines_count: rows.length,
-      lines: rows.map((r, i) => ({
-        id: `tmp-${i}`,
-        line_index: r.line_index,
-        spanish_text: r.spanish_text,
-        pronunciation: r.pronunciation,
-        english_translation: r.english_translation,
-        is_chorus: r.is_chorus,
-      })),
-      lyrics_source: lyricsSource,
-      genius_url: geniusHit?.url ?? null,
-    });
+    // ===== Phase 4: finalize song metadata (genre/difficulty/title/artist). =====
+    const { error: songUpdErr } = await supabase
+      .from("songs")
+      .update({
+        title: parsed.title || cleanTitle,
+        artist: parsed.artist || cleanArtist,
+        genre: parsed.genre || "pop latino",
+        difficulty: parsed.difficulty || "intermediate",
+        is_synced: syncedTimestamps.length > 0,
+      })
+      .eq("id", songId);
+    if (songUpdErr) console.error("song finalize update failed:", songUpdErr.message);
+
+    console.log(`[song ${songId}] generation complete: ${n} lines, source=${lyricsSource}`);
   } catch (error) {
-    console.error("Unexpected generate-lyrics error:", error instanceof Error ? error.message : error);
-    return jsonResponse({ error: "Internal server error" }, 500);
+    console.error("Background generation error:", error instanceof Error ? error.message : error);
+    await markSongFailed(supabase, songId, "Unexpected background error");
   }
-});
+}

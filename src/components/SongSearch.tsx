@@ -70,10 +70,28 @@ export const SongSearch = () => {
             // Notify any list views (e.g. Dashboard "Last Searched") to refetch.
             window.dispatchEvent(new CustomEvent("song-generated", { detail: { song_id: data.song_id } }));
           }
-          return { song_id: data.song_id, lines: data.lines };
+          return { song_id: data.song_id, lines: data.lines, pending: data.pending };
         });
       registerGeneration(r.youtube_id, generation);
-      navigate(`/song/pending/${r.youtube_id}`);
+
+      // Optimistic routing: the backend now returns { song_id, pending: true }
+      // almost immediately (it inserts the song row, then continues lyrics +
+      // AI in the background). Navigate straight to /song/:id as soon as we
+      // have an id — the page renders progressively via realtime. Only fall
+      // back to /song/pending/:youtubeId if the response stalls or errors
+      // before producing an id.
+      const settled = await Promise.race([
+        generation,
+        new Promise<{ song_id?: undefined }>((resolve) => setTimeout(() => resolve({}), 8000)),
+      ]);
+      if (settled && "song_id" in settled && settled.song_id) {
+        prefetchSong(settled.song_id);
+        navigate(`/song/${settled.song_id}`);
+      } else if (settled && "error" in settled && settled.error) {
+        toast({ title: "Generation failed", description: String(settled.error), variant: "destructive" });
+      } else {
+        navigate(`/song/pending/${r.youtube_id}`);
+      }
     } catch (err) {
       console.error(err);
       toast({ title: "Generation failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
