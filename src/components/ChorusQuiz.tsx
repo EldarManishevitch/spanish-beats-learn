@@ -131,28 +131,17 @@ export const ChorusQuiz = ({ songId, lines, songTitle, songArtist, sectionId = "
 
   const updateVocabStat = async (word: string, isCorrect: boolean) => {
     if (!user) return;
-    const { data: existing } = await supabase
-      .from("user_vocab_stats")
-      .select("id, fail_count, correct_count, is_mastered")
-      .eq("user_id", user.id).eq("word", word).maybeSingle();
-    const now = new Date().toISOString();
-    if (existing) {
-      const fc = isCorrect ? existing.fail_count : existing.fail_count + 1;
-      const cc = isCorrect ? existing.correct_count + 1 : existing.correct_count;
-      const mastered = isCorrect && cc >= 3 && fc === 0;
-      await supabase.from("user_vocab_stats").update({
-        fail_count: fc, correct_count: cc,
-        is_mastered: mastered || existing.is_mastered,
-        last_reviewed: now,
-      }).eq("id", existing.id);
-      if (mastered && !existing.is_mastered) await addXp("word_mastered", word);
-    } else {
-      await supabase.from("user_vocab_stats").insert({
-        user_id: user.id, word,
-        fail_count: isCorrect ? 0 : 1,
-        correct_count: isCorrect ? 1 : 0,
-        last_reviewed: now,
-      });
+    // All count/mastery mutations are server-validated. The edge function
+    // returns the post-trigger row so we know when a word just became
+    // mastered and can award the corresponding XP.
+    const { data, error } = await supabase.functions.invoke("record-vocab", {
+      body: { type: "quiz_attempt", word, is_correct: isCorrect },
+    });
+    if (error) { console.error("record-vocab failed", error); return; }
+    // The function returns the previous mastery state implicitly; ask the
+    // server for the canonical mastered flag and award XP only when needed.
+    if (isCorrect && (data as any)?.correct_count >= 3 && (data as any)?.fail_count === 0) {
+      await addXp("word_mastered", word);
     }
   };
 

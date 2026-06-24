@@ -58,10 +58,9 @@ const Roleplay = () => {
       if (n === 2 && user) {
         const word = step.spanish_text.split(/\s+/).find((w) => w.length > 4)?.toLowerCase().replace(/[¿¡!?.,;:""'()]/g, "");
         if (word) {
-          supabase.from("user_vocab_stats").upsert(
-            { user_id: user.id, word, fail_count: 1, last_reviewed: new Date().toISOString() },
-            { onConflict: "user_id,word" },
-          ).then(() => toast.info(`"${word}" added to Review Room`));
+          supabase.functions
+            .invoke("record-vocab", { body: { type: "track_reveal", word } })
+            .then(() => toast.info(`"${word}" added to Review Room`));
         }
       }
       return { ...prev, [i]: n };

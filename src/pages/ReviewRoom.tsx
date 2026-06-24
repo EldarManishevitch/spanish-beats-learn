@@ -45,9 +45,10 @@ const ReviewRoom = () => {
   useEffect(() => { load(); }, [user]);
 
   const markMastered = async (s: Stat) => {
-    await supabase.from("user_vocab_stats")
-      .update({ is_mastered: true, fail_count: 0, last_reviewed: new Date().toISOString() })
-      .eq("id", s.id);
+    const { error } = await supabase.functions.invoke("record-vocab", {
+      body: { type: "mark_mastered", stat_id: s.id },
+    });
+    if (error) { console.error("record-vocab failed", error); return; }
     await addXp("word_mastered", s.word.toLowerCase());
     const r = await recompute();
     if (r?.unlock_changed) toast.success("¡Conversations unlocked!");
@@ -165,22 +166,17 @@ const ReviewQuiz = ({ stats, vocabMap, onDone }: { stats: Stat[]; vocabMap: Reco
     const s = q.stat;
     if (correct) {
       setScore((x) => x + 1);
-      const newCorrect = s.correct_count + 1;
-      const newFail = Math.max(0, s.fail_count - 1);
-      const mastered = newCorrect >= 2 && newFail === 0;
-      await supabase.from("user_vocab_stats").update({
-        correct_count: newCorrect,
-        fail_count: newFail,
-        is_mastered: mastered,
-        last_reviewed: new Date().toISOString(),
-      }).eq("id", s.id);
+      const { data, error } = await supabase.functions.invoke("record-vocab", {
+        body: { type: "review_correct", stat_id: s.id },
+      });
+      if (error) { console.error("record-vocab failed", error); return; }
       await addXp("quiz_correct", `review:${s.id}:${s.correct_count + 1}`);
-      if (mastered) await addXp("word_mastered", s.word.toLowerCase());
+      if ((data as any)?.is_mastered) await addXp("word_mastered", s.word.toLowerCase());
     } else {
-      await supabase.from("user_vocab_stats").update({
-        fail_count: s.fail_count + 1,
-        last_reviewed: new Date().toISOString(),
-      }).eq("id", s.id);
+      const { error } = await supabase.functions.invoke("record-vocab", {
+        body: { type: "review_wrong", stat_id: s.id },
+      });
+      if (error) console.error("record-vocab failed", error);
     }
   };
 
