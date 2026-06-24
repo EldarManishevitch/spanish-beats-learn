@@ -45,9 +45,10 @@ const ReviewRoom = () => {
   useEffect(() => { load(); }, [user]);
 
   const markMastered = async (s: Stat) => {
-    await supabase.from("user_vocab_stats")
-      .update({ is_mastered: true, fail_count: 0, last_reviewed: new Date().toISOString() })
-      .eq("id", s.id);
+    const { error } = await supabase.functions.invoke("record-vocab", {
+      body: { type: "mark_mastered", stat_id: s.id },
+    });
+    if (error) { console.error("record-vocab failed", error); return; }
     await addXp("word_mastered", s.word.toLowerCase());
     const r = await recompute();
     if (r?.unlock_changed) toast.success("¡Conversations unlocked!");
