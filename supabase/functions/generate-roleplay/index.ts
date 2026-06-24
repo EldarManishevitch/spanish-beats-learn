@@ -29,10 +29,27 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: corsHeaders });
 
     const { scenario_hint } = await req.json().catch(() => ({}));
-    if (scenario_hint != null && (typeof scenario_hint !== "string" || scenario_hint.length > 200)) {
-      return new Response(JSON.stringify({ error: "invalid scenario_hint" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Sanitize scenario_hint to neutralise prompt-injection. Only allow short
+    // natural-language descriptions: letters (incl. Spanish accents), digits,
+    // spaces, and a tiny set of punctuation. Strip everything else, cap to
+    // 120 chars, and reject obvious instruction-style payloads.
+    let safeHint = "";
+    if (scenario_hint != null) {
+      if (typeof scenario_hint !== "string" || scenario_hint.length > 200) {
+        return new Response(JSON.stringify({ error: "invalid scenario_hint" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const cleaned = scenario_hint
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/[^\p{L}\p{N} ,.\-'!?]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 120);
+      const INJECTION_RE = /\b(ignore|disregard|override|forget|system\s*:|assistant\s*:|developer\s*:|prompt|instruction|jailbreak|you\s+are\s+now|act\s+as)\b/i;
+      if (cleaned && !INJECTION_RE.test(cleaned)) {
+        safeHint = cleaned;
+      }
     }
 
     const { data: profile } = await supabase
