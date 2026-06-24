@@ -594,6 +594,17 @@ export const SectionedSongPlayer = ({
                 t.end > t.start &&
                 currentPlaybackTime >= t.start &&
                 currentPlaybackTime <= t.end;
+              const start = t?.start ?? line.start_seconds ?? 0;
+              const canSeek = isSynced && start > 0;
+              const handleSeek = () => {
+                if (!canSeek || !playerRef.current) return;
+                try {
+                  playerRef.current.seekTo(Math.max(0, start - 0.05), true);
+                  playerRef.current.playVideo();
+                } catch (e) {
+                  console.error("seek-to-line failed", e);
+                }
+              };
               return (
                 <div
                   key={line.id}
@@ -603,10 +614,17 @@ export const SectionedSongPlayer = ({
                       el.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                   }}
+                  onClick={canSeek ? handleSeek : undefined}
+                  onKeyDown={canSeek ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSeek(); } } : undefined}
+                  role={canSeek ? "button" : undefined}
+                  tabIndex={canSeek ? 0 : undefined}
+                  aria-label={canSeek ? `Jump to ${line.spanish_text}` : undefined}
                   className={`rounded-xl px-4 py-3 transition-all duration-300 border-2 ${
                     isActive
                       ? "scale-[1.02] border-[#D96B43] bg-[#2C2A29]/5 shadow-sm"
-                      : "border-transparent bg-transparent"
+                      : canSeek
+                        ? "border-transparent bg-transparent cursor-pointer hover:bg-[#2C2A29]/5 hover:border-[#2C2A29]/20"
+                        : "border-transparent bg-transparent"
                   }`}
                 >
                   <p
