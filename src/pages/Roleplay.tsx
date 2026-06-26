@@ -42,8 +42,8 @@ const Roleplay = () => {
   };
 
   useEffect(() => {
-    if (progress?.unlocked_conversations && !scenario && !loading) load();
-  }, [progress?.unlocked_conversations]);
+    if (!scenario && !loading) load();
+  }, []);
 
   const speak = (t: string) => {
     const u = new SpeechSynthesisUtterance(t);
@@ -72,8 +72,7 @@ const Roleplay = () => {
       setCompleted(true);
       await addXp("roleplay_completed", new Date().toISOString().slice(0, 10));
       const r = await recompute();
-      if (r?.unlock_changed) setUnlock({ open: true, title: "Conversations", subtitle: "50 words mastered!" });
-      else if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });
+      if (r?.tier_changed) setUnlock({ open: true, title: progress?.cefr_level ?? "", subtitle: "CEFR rank up" });
       else toast.success("+50 XP");
     } else {
       setTurn(turn + 1);
@@ -81,19 +80,6 @@ const Roleplay = () => {
   };
 
   if (!progress) return <AppLayout><div className="py-20 text-center text-muted-foreground">Loading…</div></AppLayout>;
-
-  if (!progress.unlocked_conversations) {
-    return (
-      <AppLayout>
-        <LockedFeature
-          title="Roleplay Scenarios"
-          description="Master 50 words from songs to roleplay real Latin-life situations with the AI."
-          current={progress.mastered_count}
-          goal={50}
-        />
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
