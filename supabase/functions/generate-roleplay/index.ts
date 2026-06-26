@@ -53,12 +53,8 @@ Deno.serve(async (req) => {
     }
 
     const { data: profile } = await supabase
-      .from("profiles").select("cefr_level, unlocked_conversations").eq("id", user.id).maybeSingle();
+      .from("profiles").select("cefr_level").eq("id", user.id).maybeSingle();
 
-    // Server-side feature gate
-    if (!profile?.unlocked_conversations) {
-      return new Response(JSON.stringify({ error: "Feature locked" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
     const cefr = profile?.cefr_level ?? "A1";
 
     const { data: mastered } = await supabase
