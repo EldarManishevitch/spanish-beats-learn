@@ -9,7 +9,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
-AS \$function\$
+AS $function$
 DECLARE
   v_mastered int;
   v_accuracy numeric;
@@ -59,14 +59,14 @@ BEGIN
     'unlock_changed', false
   );
 END;
-\$function\$;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.protect_profile_progression()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS \$\$
+AS $$
 DECLARE
   v_role text := current_setting('request.jwt.claim.role', true);
 BEGIN
@@ -82,4 +82,4 @@ BEGIN
   NEW.mastered_count := OLD.mastered_count;
   RETURN NEW;
 END;
-\$\$;
+$$;
