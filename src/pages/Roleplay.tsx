@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LockedFeature } from "@/components/LockedFeature";
 import { UnlockCelebration } from "@/components/UnlockCelebration";
 import { useProgress } from "@/hooks/useProgress";
 import { Mic, Volume2, Sparkles, RefreshCw } from "lucide-react";
