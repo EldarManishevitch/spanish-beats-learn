@@ -45,8 +45,8 @@ const Conversations = () => {
   };
 
   useEffect(() => {
-    if (progress?.unlocked_conversations) load();
-  }, [user, progress?.unlocked_conversations]);
+    load();
+  }, [user]);
 
   const speak = (text: string) => {
     const u = new SpeechSynthesisUtterance(text);
@@ -55,19 +55,6 @@ const Conversations = () => {
   };
 
   if (!progress) return <AppLayout><div className="py-20 text-center text-muted-foreground">Loading…</div></AppLayout>;
-
-  if (!progress.unlocked_conversations) {
-    return (
-      <AppLayout>
-        <LockedFeature
-          title="Daily Conversations"
-          description="Master 50 words from songs to unlock daily Latin-life phrases."
-          current={progress.mastered_count}
-          goal={50}
-        />
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
