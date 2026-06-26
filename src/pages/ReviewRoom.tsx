@@ -50,10 +50,9 @@ const ReviewRoom = () => {
     });
     if (error) { console.error("record-vocab failed", error); return; }
     await addXp("word_mastered", s.word.toLowerCase());
-    const r = await recompute();
-    if (r?.unlock_changed) toast.success("¡Conversations unlocked!");
-    if (r?.tier_changed) toast.success("CEFR rank up!");
-    load();
+      const r = await recompute();
+      if (r?.tier_changed) toast.success("CEFR rank up!");
+      load();
   };
 
   return (
@@ -184,7 +183,6 @@ const ReviewQuiz = ({ stats, vocabMap, onDone }: { stats: Stat[]; vocabMap: Reco
     if (idx + 1 >= questions.length) {
       setDone(true);
       const r = await recompute();
-      if (r?.unlock_changed) toast.success("¡Conversations unlocked!");
       if (r?.tier_changed) toast.success("CEFR rank up!");
     } else {
       setIdx(idx + 1);
