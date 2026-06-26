@@ -25,13 +25,6 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: corsHeaders });
 
-    // Server-side feature gate: must have unlocked conversations
-    const { data: gateProfile } = await supabase
-      .from("profiles").select("unlocked_conversations").eq("id", user.id).maybeSingle();
-    if (!gateProfile?.unlocked_conversations) {
-      return new Response(JSON.stringify({ error: "Feature locked" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     const { force } = await req.json().catch(() => ({ force: false }));
     const today = new Date().toISOString().slice(0, 10);
 
