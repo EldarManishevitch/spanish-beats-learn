@@ -1,0 +1,2 @@
+ALTER TABLE public.quiz_attempts ADD CONSTRAINT quiz_attempts_score_valid CHECK (score >= 0 AND total > 0 AND score <= total) NOT VALID;
+ALTER TABLE public.quiz_attempts VALIDATE CONSTRAINT quiz_attempts_score_valid;
